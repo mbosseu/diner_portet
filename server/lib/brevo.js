@@ -147,4 +147,15 @@ async function sendEmail({ to, subject, html, text, attachments = [], cc = [], o
   return { sent: true, via: 'brevo-api', messageId: data.messageId, smtpError };
 }
 
-module.exports = { sendEmail, isBrevoEnabled, isSmtpEnabled, smtpInfo, outboxDir };
+/** Vérifie la connexion et l'identification SMTP, sans rien envoyer. */
+async function verifySmtp() {
+  if (!isSmtpEnabled()) return { ok: false, error: 'smtp_not_configured' };
+  try {
+    await smtpTransport().verify();
+    return { ok: true, ...smtpInfo() };
+  } catch (err) {
+    return { ok: false, error: `${err.code || ''} ${err.responseCode || ''} ${String(err.message || '').slice(0, 160)}`.trim(), ...smtpInfo() };
+  }
+}
+
+module.exports = { sendEmail, isBrevoEnabled, isSmtpEnabled, smtpInfo, verifySmtp, outboxDir };

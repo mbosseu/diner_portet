@@ -616,6 +616,10 @@ function mount(app, { store, sendReminders, sendRealTestEmails, isLive, publicVi
     res.json({ id: reg.id, to, ...(await sendRealTestEmails(reg, to)) });
   });
 
+  app.get('/api/studio/smtp-check', guard, async (_req, res) => {
+    res.json(await require('./lib/brevo').verifySmtp());
+  });
+
   app.post('/api/studio/reset', guard, async (_req, res) => {
     let removed = 0;
     for (const r of await store.listAll()) {
