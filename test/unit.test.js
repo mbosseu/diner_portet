@@ -82,3 +82,13 @@ test('e-mails : contenu échappé (pas d’injection HTML) et informations clés
   const org = organizerEmail(reg);
   assert.match(org.text, /Recherche : y/);
 });
+
+test('noms : majuscules corrigées si tout est saisi en minuscules ou en capitales', () => {
+  const { validate: v } = require('../server/app');
+  const base = { email: 'a@b.fr', phone: '0612345678', company: 'x', role: 'x', activity: 'x', sector: 'Autre', looking: 'x', offer: 'x', consent: true };
+  const name = (f, l) => { const r = v({ ...base, firstName: f, lastName: l }).fields; return `${r.first_name} ${r.last_name}`; };
+  assert.equal(name('brad', 'mbosseu'), 'Brad Mbosseu');
+  assert.equal(name('JEAN-PIERRE', "D'ARC"), "Jean-Pierre D'Arc");
+  assert.equal(name('éloïse', 'le goff'), 'Éloïse Le Goff');
+  assert.equal(name('Marie', 'McAllister'), 'Marie McAllister');
+});

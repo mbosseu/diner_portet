@@ -74,7 +74,7 @@ function confirmationEmail(reg, { qrSrc }) {
   <tr><td style="background:#191815;border:1px solid #6b5a3a;padding:10px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #4a3f2c;">
       <tr><td style="padding:34px 30px 8px;">
-        <div style="font-family:${SANS};font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8f8a80;">Invitation nominative · N°01</div>
+        <div style="font-family:${SANS};font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8f8a80;">Invitation nominative · Édition N°01</div>
         <div style="font-family:${SERIF};font-style:italic;font-size:18px;color:#b9b2a6;margin-top:18px;">Le Business Club du Boxing Center a le plaisir de vous convier à sa</div>
         <div style="font-family:${SERIF};font-size:40px;line-height:44px;color:#eae5da;margin-top:8px;">Rencontre <em style="color:#c4a46a;">Entrepreneurs</em></div>
         <div style="height:1px;width:110px;background:#c4a46a;margin:24px 0;"></div>

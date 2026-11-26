@@ -60,10 +60,17 @@ const SECTORS = new Set([
   'Industrie & logistique', 'Juridique & comptabilité', 'Autre',
 ]);
 
+/** « brad mbosseu » ou « BRAD MBOSSEU » → « Brad Mbosseu » ; une saisie déjà mixte (« McAllister ») est gardée. */
+function properName(v) {
+  const s = clean(v, 60);
+  if (s !== s.toLowerCase() && s !== s.toUpperCase()) return s;
+  return s.toLowerCase().replace(/(^|[\s'’-])(\p{L})/gu, (_m, sep, ch) => sep + ch.toUpperCase());
+}
+
 function validate(body) {
   const f = {
-    first_name: clean(body.firstName, 60),
-    last_name: clean(body.lastName, 60),
+    first_name: properName(body.firstName),
+    last_name: properName(body.lastName),
     email: clean(body.email, 120).toLowerCase(),
     phone: clean(body.phone, 30),
     company: clean(body.company, 120),
