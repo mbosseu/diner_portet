@@ -18,7 +18,11 @@
       if (n === step) li.setAttribute("aria-current", "step");
       else li.removeAttribute("aria-current");
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    // Au-delà du formulaire (règlement, invitation, retour de paiement) : on amène l'étape et son message
+    // à l'écran, sous la barre de navigation, au lieu de remonter tout en haut de la page.
+    var anchor = stepper[0] && stepper[0].parentElement;
+    var top = step > 0 && anchor ? anchor.getBoundingClientRect().top + window.scrollY - 90 : 0;
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
   }
 
   /* ---------- Validation ---------- */
@@ -114,6 +118,8 @@
   function showPayError(msg) {
     payError.textContent = msg || "";
     payError.hidden = !msg;
+    // Le message doit être vu tout de suite (retour de paiement annulé ou refusé, erreur réseau).
+    if (msg) setTimeout(function () { payError.scrollIntoView({ behavior: "smooth", block: "center" }); }, 350);
   }
 
   function saveDraft() {
