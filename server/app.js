@@ -284,6 +284,32 @@ function confirmPayment(reg, opts) {
   return reg.provider === 'paypal' ? confirmWithPaypal(reg, opts) : confirmWithCawl(reg);
 }
 
+/**
+ * Studio : envoi RÉEL (via Brevo) de l'invitation et du rappel d'une inscription de test à une adresse
+ * choisie, pour vérifier la délivrabilité sans payer. Ne touche pas à l'inscription.
+ */
+async function sendRealTestEmails(reg, to) {
+  if (!isBrevoEnabled()) return { ok: false, error: 'brevo_not_configured' };
+  const qrSrc = invitationLinks(reg).qr;
+  const qr = await qrBuffer(reg);
+  const results = [];
+  for (const [kind, mail] of [['invitation', confirmationEmail(reg, { qrSrc })], ['rappel', reminderEmail(reg, { qrSrc })]]) {
+    try {
+      const r = await sendEmail({
+        to,
+        subject: `[TEST] ${mail.subject}`,
+        html: mail.html,
+        text: mail.text,
+        attachments: kind === 'invitation' ? [{ name: `invitation-${reg.id}.png`, content: qr.toString('base64') }] : [],
+      });
+      results.push({ kind, sent: r.sent, via: r.via, messageId: r.messageId || null });
+    } catch (err) {
+      results.push({ kind, sent: false, error: err.message });
+    }
+  }
+  return { ok: results.every((r) => r.sent), results };
+}
+
 /** Rappel de la veille. `scope` : 'live' (vrais inscrits) ou 'test' (studio). */
 async function sendReminders(scope) {
   const sent = [];
@@ -543,7 +569,7 @@ function createApp() {
     });
   });
 
-  studio.mount(app, { store, sendReminders, isLive, publicView });
+  studio.mount(app, { store, sendReminders, sendRealTestEmails, isLive, publicView });
 
   app.use('/api', (_req, res) => res.status(404).json({ ok: false, error: 'not_found' }));
   app.use('/api', (err, _req, res, _next) => {

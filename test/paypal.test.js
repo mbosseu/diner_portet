@@ -256,3 +256,11 @@ test('variables copiées de Box Plus : compte PayPal de Portet, CAWL de Portet, 
     for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
   }
 });
+
+test('Studio : envoi réel de test protégé, adresse vérifiée, jamais sans Brevo', async () => {
+  assert.equal((await post('/api/studio/real-email', { to: 'a@b.fr' })).status, 404, 'sans session Studio');
+  const h = { cookie: studioCookie };
+  assert.equal((await post('/api/studio/real-email', { to: 'pas-une-adresse' }, h)).body.error, 'invalid_email');
+  const r = await post('/api/studio/real-email', { to: 'a@b.fr' }, h);
+  assert.ok(['brevo_not_configured', 'no_paid_test_registration'].includes(r.body.error), JSON.stringify(r.body));
+});

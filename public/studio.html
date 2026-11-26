@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/studio.css?v=2">
+  <link rel="stylesheet" href="css/studio.css?v=3">
 </head>
 <body>
   <header class="st-head">
@@ -57,6 +57,13 @@
             <button class="st-btn st-btn--danger" id="reset">Effacer toutes les données de test</button>
           </div>
           <p class="st-note" id="toolMsg" role="status"></p>
+          <h3>Tester l'envoi réel des e-mails</h3>
+          <p class="st-note">Envoie pour de vrai, via Brevo, l'invitation et le rappel de la dernière inscription de test payée à l'adresse de votre choix (sujet préfixé « [TEST] »).</p>
+          <div class="st-tools">
+            <input type="email" id="realTo" placeholder="adresse@exemple.fr" autocomplete="email">
+            <button class="st-btn st-btn--line" id="realSend">Envoyer pour de vrai</button>
+          </div>
+          <p class="st-note" id="realMsg" role="status"></p>
         </article>
       </div>
 
@@ -86,6 +93,6 @@
     </section>
   </main>
 
-  <script src="js/studio.js?v=3"></script>
+  <script src="js/studio.js?v=4"></script>
 </body>
 </html>

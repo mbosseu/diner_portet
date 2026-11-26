@@ -93,6 +93,18 @@
     });
   });
 
+  $("realSend").addEventListener("click", function () {
+    $("realMsg").textContent = "Envoi en cours…";
+    api("/api/studio/real-email", { method: "POST", body: JSON.stringify({ to: $("realTo").value }) }).then(function (r) {
+      if (r.error === "invalid_email") { $("realMsg").textContent = "Adresse e-mail invalide."; return; }
+      if (r.error === "no_paid_test_registration") { $("realMsg").textContent = "Faites d’abord une inscription de test payée."; return; }
+      if (r.error === "brevo_not_configured") { $("realMsg").textContent = "Brevo n’est pas configuré (BREVO_API_KEY)."; return; }
+      $("realMsg").textContent = (r.results || []).map(function (x) {
+        return x.kind + " : " + (x.sent ? "accepté par Brevo ✔" : "échec — " + (x.error || "inconnu"));
+      }).join(" · ") || "Échec.";
+    });
+  });
+
   $("reset").addEventListener("click", function () {
     if (!window.confirm("Effacer toutes les inscriptions, paiements et e-mails de test ?")) return;
     api("/api/studio/reset", { method: "POST" }).then(function (r) {

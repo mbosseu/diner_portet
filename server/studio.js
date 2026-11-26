@@ -312,7 +312,7 @@ ${error ? `<div class="err" role="alert">${esc(error)}</div>` : ''}
 
 /* ---------- Routes ---------- */
 
-function mount(app, { store, sendReminders, isLive, publicView }) {
+function mount(app, { store, sendReminders, sendRealTestEmails, isLive, publicView }) {
   /* --- API PayPal simulée (OAuth client_credentials puis jeton Bearer, comme PayPal) --- */
   app.post('/api/studio/paypal/v1/oauth2/token', (req, res) => {
     const expected = `Basic ${Buffer.from(`${paypal.STUDIO_CLIENT_ID}:${paypal.studioSecret()}`).toString('base64')}`;
@@ -605,6 +605,15 @@ function mount(app, { store, sendReminders, isLive, publicView }) {
   app.post('/api/studio/reminders', guard, async (_req, res) => {
     const result = await sendReminders('test');
     res.json({ ok: true, sent: result.sent.length, failed: result.failed });
+  });
+
+  app.post('/api/studio/real-email', guard, async (req, res) => {
+    const to = String(req.body?.to || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(to)) return res.status(400).json({ ok: false, error: 'invalid_email' });
+    const tests = (await store.listAll()).filter((r) => !isLive(r) && r.status === 'paid');
+    const reg = req.body?.id ? tests.find((r) => r.id === req.body.id) : tests[tests.length - 1];
+    if (!reg) return res.status(404).json({ ok: false, error: 'no_paid_test_registration' });
+    res.json({ id: reg.id, to, ...(await sendRealTestEmails(reg, to)) });
   });
 
   app.post('/api/studio/reset', guard, async (_req, res) => {

@@ -57,3 +57,5 @@ p { color: var(--dim); margin: 0 0 12px; }
   .st-grid, .st-outbox { grid-template-columns: 1fr; }
   .st-outbox iframe { height: 520px; }
 }
+#realTo { flex: 1 1 220px; min-width: 0; padding: 12px 0; background: transparent; border: 0; border-bottom: 1px solid var(--hair); color: var(--bone); font-size: 16px; outline: none; }
+#realTo:focus { border-color: var(--gold); }
