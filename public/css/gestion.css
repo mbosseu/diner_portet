@@ -141,3 +141,6 @@ h1 em { color: var(--gold); }
   .g-print td.box span { display: inline-block; width: 4.5mm; height: 4.5mm; border: 0.3mm solid #000; }
   .g-print tr { page-break-inside: avoid; }
 }
+
+/* Suivi des rappels : phrase lisible, pas en capitales */
+#reminderInfo { text-transform: none; letter-spacing: 0; font-size: 13px; }

@@ -79,6 +79,8 @@ function smtpTransport(cfg = smtpConfig()) {
 }
 
 /** Envoi SMTP : essaie chaque jeu d'identifiants ; retient celui qui fonctionne. */
+let smtpPausedUntil = 0;
+
 async function sendSmtp(message) {
   const list = smtpConfigs();
   let lastErr = null;
@@ -93,6 +95,8 @@ async function sendSmtp(message) {
       if (err.code !== 'EAUTH') break; // autre erreur : inutile d'essayer d'autres identifiants
     }
   }
+  // Identifiants refusés partout : on n'insiste pas pendant 10 min (envoi direct par l'API, plus rapide).
+  if (lastErr && lastErr.code === 'EAUTH') smtpPausedUntil = Date.now() + 10 * 60 * 1000;
   throw lastErr;
 }
 
@@ -118,7 +122,7 @@ async function sendEmail({ to, subject, html, text, attachments = [], cc = [], o
   if (!to) throw new Error('destinataire manquant');
 
   let smtpError = null;
-  if (inline.length && !outboxOnly && isBrevoEnabled() && isSmtpEnabled()) {
+  if (inline.length && !outboxOnly && isBrevoEnabled() && isSmtpEnabled() && Date.now() >= smtpPausedUntil) {
     try {
       const info = await sendSmtp(smtpMessage({ to, subject, html, text, attachments, inline, cc }));
       return { sent: true, via: 'brevo-smtp', messageId: info.messageId, raw: info.message };

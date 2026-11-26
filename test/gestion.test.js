@@ -20,7 +20,7 @@ for (const k of ['CAWL_MERCHANT_ID', 'CAWL_API_KEY_ID', 'CAWL_API_SECRET', 'CAWL
   'CAWL_TEST_API_SECRET', 'BREVO_API_KEY', 'DINER_SUPABASE_URL', 'DINER_SUPABASE_SERVICE_ROLE_KEY', 'STUDIO_PASSWORD',
   'VERCEL', 'VERCEL_ENV', 'ORGANIZER_EMAIL']) delete process.env[k];
 
-const { createApp, qrPayload } = require('../server/app');
+const { createApp, qrPayload, sendReminders } = require('../server/app');
 const store = require('../server/lib/store');
 
 let server; let BASE; let cookie = '';
@@ -171,4 +171,44 @@ test('trop d’essais de mot de passe : blocage temporaire', async () => {
   let last;
   for (let i = 0; i < 10; i += 1) last = await call('POST', '/api/gestion/login', { password: `faux${i}` }, false);
   assert.equal(last.status, 429);
+});
+
+test('rappels : envoi limité dans le temps, le reste est repris au passage suivant', async () => {
+  for (let i = 0; i < 6; i += 1) await seed();
+  const none = await sendReminders('live', { budgetMs: 0 });
+  assert.equal(none.sent.length, 0);
+  assert.ok(none.remaining >= 6, 'temps écoulé : rien envoyé, tout reste à faire');
+  const all = await sendReminders('live');
+  assert.equal(all.remaining, 0);
+  assert.ok(all.sent.length >= 6);
+  assert.equal((await sendReminders('live')).sent.length, 0, 'jamais deux fois');
+});
+
+test('cron du rappel : protégé, trois passages, pas de doublon', async () => {
+  for (const p of ['/api/cron/reminder', '/api/cron/reminder-retry', '/api/cron/reminder-last']) {
+    assert.equal((await fetch(`${BASE}${p}`)).status, 401, p);
+  }
+  const auth = { authorization: 'Bearer secret-de-signature-test' };
+  const day = await fetch(`${BASE}/api/cron/reminder-retry`, { headers: auth }).then((r) => r.json());
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
+  if (today !== '2026-12-03') assert.equal(day.skipped, true);
+  const reg = await seed();
+  const forced = await fetch(`${BASE}/api/cron/reminder-last?force=1`, { headers: auth }).then((r) => r.json());
+  assert.ok(forced.sent >= 1, JSON.stringify(forced));
+  assert.ok((await store.load(reg.id)).reminder_sent_at);
+  const again = await fetch(`${BASE}/api/cron/reminder?force=1`, { headers: auth }).then((r) => r.json());
+  assert.equal(again.sent, 0);
+});
+
+test('back-office : suivi des rappels, bouton de secours refusé avant la veille', async () => {
+  const ov = (await call('GET', '/api/gestion/overview')).body;
+  assert.equal(typeof ov.stats.reminders_sent, 'number');
+  assert.equal(ov.reminders.sends_on, '2026-12-03');
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
+  if (today < '2026-12-03') {
+    const r = await call('POST', '/api/gestion/reminders', {});
+    assert.equal(r.status, 409);
+    assert.equal(r.body.error, 'too_early');
+  }
+  assert.equal((await call('POST', '/api/gestion/reminders', {}, false)).status, 401);
 });

@@ -80,7 +80,26 @@
     $("sPartners").textContent = s.partners_present + " / " + s.partners_total;
     $("sPending").textContent = s.pending;
     $("sRevenue").textContent = euros(s.revenue_cents);
+    var w = data.reminders || {};
+    var auto = w.today && w.sends_on && w.today < w.sends_on
+      ? " · envoi automatique le 3 décembre vers 10 h (nouvel essai à 14 h et 18 h)" : "";
+    $("reminderInfo").textContent = "Rappels de la veille envoyés : " + (s.reminders_sent || 0) + " / " + s.paid + auto;
   }
+
+  /* ---------- Rappels (secours si l'envoi automatique a échoué) ---------- */
+  $("sendReminders").addEventListener("click", function () {
+    var btn = this;
+    if (!window.confirm("Envoyer maintenant le rappel « C’est demain » à tous les inscrits payés qui ne l’ont pas encore reçu ?")) return;
+    btn.disabled = true;
+    api("/api/gestion/reminders", { method: "POST", body: "{}" }).then(function (r) {
+      btn.disabled = false;
+      if (r.error === "too_early") { window.alert("Les rappels ne peuvent partir que la veille (3 décembre) ou le jour même."); return; }
+      if (!r.ok) { window.alert("Échec de l’envoi. Réessayez dans un instant."); return; }
+      window.alert(r.sent + " rappel(s) envoyé(s)" + (r.failed ? ", " + r.failed + " en échec" : "") +
+        (r.remaining ? ", " + r.remaining + " restant(s) : cliquez à nouveau." : "."));
+      load();
+    });
+  });
 
   function matches(r, q) {
     if (!q) return true;

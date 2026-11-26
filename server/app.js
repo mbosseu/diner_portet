@@ -387,23 +387,39 @@ async function reconcileQuietly(opts) {
   }
 }
 
-/** Rappel de la veille. `scope` : 'live' (vrais inscrits) ou 'test' (studio). */
-async function sendReminders(scope) {
+/**
+ * Rappel de la veille. `scope` : 'live' (vrais inscrits) ou 'test' (studio).
+ * Envois en parallèle (4 à la fois) et dans un temps limité : une fonction Vercel est coupée à 30 s,
+ * on s'arrête avant et on indique combien restent (le passage suivant du cron les envoie).
+ */
+async function sendReminders(scope, { budgetMs = 20000, concurrency = 4 } = {}) {
+  const started = Date.now();
+  const todo = (await store.listAll()).filter((reg) =>
+    reg.status === 'paid' && !reg.reminder_sent_at && (scope === 'live') === isLive(reg));
   const sent = [];
   const failed = [];
-  for (const reg of await store.listAll()) {
-    if (reg.status !== 'paid' || reg.reminder_sent_at) continue;
-    if ((scope === 'live') !== isLive(reg)) continue;
-    try {
-      await sendQrEmail(reg, (qrSrc) => reminderEmail(reg, { qrSrc }));
-      reg.reminder_sent_at = new Date().toISOString();
-      await store.save(reg);
-      sent.push(reg.id);
-    } catch (err) {
-      failed.push({ id: reg.id, error: err.message });
+  let next = 0;
+  async function worker() {
+    while (next < todo.length && Date.now() - started < budgetMs) {
+      const reg = todo[next];
+      next += 1;
+      try {
+        await sendQrEmail(reg, (qrSrc) => reminderEmail(reg, { qrSrc }));
+        reg.reminder_sent_at = new Date().toISOString();
+        await store.save(reg);
+        sent.push(reg.id);
+      } catch (err) {
+        failed.push({ id: reg.id, error: err.message });
+      }
     }
   }
-  return { sent, failed };
+  await Promise.all(Array.from({ length: Math.min(concurrency, todo.length) }, worker));
+  return { sent, failed, remaining: todo.length - next };
+}
+
+/** Date du jour à Paris (AAAA-MM-JJ). */
+function todayInParis() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: EVENT.timezone }).format(new Date());
 }
 
 function eveOfEventISO() {
@@ -611,18 +627,21 @@ function createApp() {
     }
   });
 
-  /* Rappel de la veille — appelé chaque jour par le cron Vercel, n'envoie que le 3 décembre */
-  app.get('/api/cron/reminder', async (req, res) => {
+  /* Rappel de la veille — le cron Vercel passe chaque jour à 10 h, 14 h et 18 h (heure de Paris) ;
+     n'envoie que le 3 décembre, une seule fois par inscrit. Les passages suivants rattrapent
+     les inscrits restants (envoi interrompu, inscription payée dans la journée). */
+  app.get(['/api/cron/reminder', '/api/cron/reminder-retry', '/api/cron/reminder-last'], async (req, res) => {
     const auth = String(req.headers.authorization || '');
     const ok = Boolean(process.env.CRON_SECRET) && auth === `Bearer ${process.env.CRON_SECRET}`;
     const devOk = !isProduction() && !process.env.CRON_SECRET;
     if (!ok && !devOk) return res.status(401).json({ ok: false });
     const reconciled = await reconcileQuietly({ force: true });
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: EVENT.timezone }).format(new Date());
+    const today = todayInParis();
     const sendsOn = eveOfEventISO();
     if (today !== sendsOn && req.query.force !== '1') return res.json({ ok: true, skipped: true, today, sends_on: sendsOn, reconciled });
     const result = await sendReminders('live');
-    res.json({ ok: true, sent: result.sent.length, failed: result.failed, reconciled });
+    if (result.failed.length || result.remaining) console.error('rappels', JSON.stringify(result));
+    res.json({ ok: true, sent: result.sent.length, failed: result.failed, remaining: result.remaining, reconciled });
   });
 
   /* Liste des inscrits pour l'organisateur (JSON ou CSV) — vraies inscriptions uniquement */
@@ -656,7 +675,8 @@ function createApp() {
     next();
   });
   studio.mount(app, { store, sendReminders, sendRealTestEmails, isLive, publicView });
-  gestion.mount(app, { store, isLive, qrPayload, reconcile: () => reconcileQuietly(), resendInvitation });
+  gestion.mount(app, { store, isLive, qrPayload, reconcile: () => reconcileQuietly(), resendInvitation, sendReminders,
+    reminderWindow: () => ({ today: todayInParis(), sends_on: eveOfEventISO(), event_day: EVENT.dateISO }) });
 
   app.use('/api', (_req, res) => res.status(404).json({ ok: false, error: 'not_found' }));
   app.use('/api', (err, _req, res, _next) => {
@@ -667,4 +687,4 @@ function createApp() {
   return app;
 }
 
-module.exports = { createApp, qrPayload, validate };
+module.exports = { createApp, qrPayload, validate, sendReminders };

@@ -115,7 +115,7 @@ function hhmm(iso) {
   return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)).replace(':', ' h ');
 }
 
-function mount(app, { store, isLive, qrPayload, reconcile, resendInvitation }) {
+function mount(app, { store, isLive, qrPayload, reconcile, resendInvitation, sendReminders, reminderWindow }) {
   function guard(req, res, next) {
     if (!isAuthed(req)) return res.status(401).json({ ok: false, error: 'login_required' });
     next();
@@ -166,7 +166,9 @@ function mount(app, { store, isLive, qrPayload, reconcile, resendInvitation }) {
         partners_present: partners.filter((r) => r.checked_in_at).length,
         partners_total: PARTNER_INVITES,
         revenue_cents: paid.filter(isLive).reduce((s, r) => s + (r.amount_cents || 0), 0),
+        reminders_sent: paid.filter((r) => r.reminder_sent_at).length,
       },
+      reminders: reminderWindow ? reminderWindow() : null,
       registrations: all
         .filter((r) => r.status !== 'pending' || pending.includes(r))
         .sort((a, b) => String(a.last_name).localeCompare(String(b.last_name), 'fr'))
@@ -246,6 +248,16 @@ function mount(app, { store, isLive, qrPayload, reconcile, resendInvitation }) {
     if (!reg || reg.status !== 'paid') return res.status(404).json({ ok: false, error: 'not_found' });
     const result = await resendInvitation(reg);
     res.json({ ok: !result.error, error: result.error || null, via: result.via || null });
+  });
+
+  /* Rappels de secours : envoi manuel, seulement la veille ou le jour même (jamais « C'est demain » trop tôt). */
+  app.post('/api/gestion/reminders', guard, async (req, res) => {
+    const w = reminderWindow();
+    if (w.today !== w.sends_on && w.today !== w.event_day) {
+      return res.status(409).json({ ok: false, error: 'too_early', sends_on: w.sends_on });
+    }
+    const result = await sendReminders('live');
+    res.json({ ok: true, sent: result.sent.length, failed: result.failed.length, remaining: result.remaining });
   });
 
   app.get('/api/gestion/export.csv', guard, async (req, res) => {

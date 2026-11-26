@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/gestion.css?v=1">
+  <link rel="stylesheet" href="css/gestion.css?v=2">
 </head>
 <body>
   <header class="g-head">
@@ -64,8 +64,10 @@
       <div class="g-toolbar g-toolbar--actions">
         <a class="g-btn g-btn--line" id="exportCsv" href="/api/gestion/export.csv">Exporter (Excel)</a>
         <button class="g-btn g-btn--line" id="print" type="button">Imprimer la liste</button>
+        <button class="g-btn g-btn--line" id="sendReminders" type="button">Envoyer les rappels</button>
         <label class="g-check"><input type="checkbox" id="showTest"> Inclure les tests</label>
       </div>
+      <p class="g-count" id="reminderInfo"></p>
       <p class="g-count" id="count"></p>
       <ul class="g-list" id="list"></ul>
     </section>
@@ -106,6 +108,6 @@
   <section class="g-print" id="printArea" aria-hidden="true"></section>
 
   <script src="js/vendor/jsQR.js"></script>
-  <script src="js/gestion.js?v=1"></script>
+  <script src="js/gestion.js?v=2"></script>
 </body>
 </html>
