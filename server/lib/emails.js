@@ -57,7 +57,7 @@ function details() {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
     <tr>
       ${cell('Date', `${nb(EVENT.dateLabel.replace(/ \d{4}$/, ''))}${sub(EVENT.dateLabel.slice(-4))}`, 'width="50%"')}
-      ${cell('Programme', `${nb(time(EVENT.startTime))}${sub(`Initiation boxe<br>Déjeuner à ${nb(time(EVENT.lunchTime))}`)}`, 'width="50%"')}
+      ${cell('Programme', `${nb(time(EVENT.startTime))}${sub(`Initiation boxe<br>${nb(`Déjeuner à ${time(EVENT.lunchTime)}`)}`)}`, 'width="50%"')}
     </tr>
     <tr>
       ${cell('Lieu', `${esc(EVENT.venue)}${sub(esc(EVENT.address).replace(/, /, ',&#8203; '))}`, 'colspan="2"')}
@@ -75,7 +75,10 @@ function invitationLinks(reg) {
 }
 
 function button(href, label) {
-  return `<a href="${href}" style="display:inline-block;padding:15px 28px;border:1px solid #c4a46a;font-family:${SANS};font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#c4a46a;text-decoration:none;">${label}</a>`;
+  // Bouton plein (or, texte noir) : lisible aussi quand l'appli mail affiche l'e-mail en clair.
+  return `<table role="presentation" cellpadding="0" cellspacing="0"><tr><td bgcolor="#c4a46a" style="background:#c4a46a;">
+    <a href="${href}" style="display:inline-block;padding:16px 30px;font-family:${SANS};font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#0b0b0a;text-decoration:none;">${label}</a>
+  </td></tr></table>`;
 }
 
 /** E-mail de confirmation + invitation officielle (QR code). */
