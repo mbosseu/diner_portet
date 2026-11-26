@@ -1,0 +1,268 @@
+'use strict';
+
+/**
+ * Back-office de l'événement (page /gestion) :
+ *  - connexion par mot de passe (ADMIN_TOKEN), session signée en cookie HttpOnly ;
+ *  - liste des inscrits (nom, entreprise, e-mail, téléphone, paiement, présence), export CSV ;
+ *  - contrôle d'entrée : scan du QR code (signature vérifiée), une seule entrée par invitation ;
+ *  - invitations partenaires BC-PART-01 à 10, une seule entrée chacune ;
+ *  - renvoi de l'invitation par e-mail.
+ */
+
+const crypto = require('crypto');
+const { publicUrl, isProduction, maxPaidSeats } = require('./lib/config');
+
+const COOKIE = 'bc_gestion';
+const SESSION_MS = 12 * 60 * 60 * 1000;
+const PARTNER_INVITES = 10;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 8;
+
+function secret() {
+  return process.env.CRON_SECRET || process.env.ADMIN_TOKEN || 'dev-secret-local';
+}
+
+function sign(value) {
+  return crypto.createHmac('sha256', `gestion:${secret()}`).update(String(value)).digest('hex');
+}
+
+function safeEqual(a, b) {
+  const x = Buffer.from(String(a ?? ''));
+  const y = Buffer.from(String(b ?? ''));
+  return x.length === y.length && x.length > 0 && crypto.timingSafeEqual(x, y);
+}
+
+function readCookie(req, name) {
+  const raw = String(req.headers.cookie || '');
+  for (const part of raw.split(';')) {
+    const [k, ...v] = part.trim().split('=');
+    if (k === name) return decodeURIComponent(v.join('='));
+  }
+  return '';
+}
+
+/** Mot de passe du back-office : ADMIN_TOKEN. En local sans ADMIN_TOKEN : « local ». */
+function password() {
+  if (process.env.ADMIN_TOKEN) return process.env.ADMIN_TOKEN;
+  return isProduction() ? '' : 'local';
+}
+
+function isAuthed(req) {
+  const value = readCookie(req, COOKIE);
+  const [exp, sig] = value.split('.');
+  if (!exp || !sig || Number(exp) < Date.now()) return false;
+  return safeEqual(sig, sign(exp));
+}
+
+function setSession(res) {
+  const exp = String(Date.now() + SESSION_MS);
+  const secure = publicUrl().startsWith('https://') ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `${COOKIE}=${exp}.${sign(exp)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_MS / 1000}${secure}`);
+}
+
+const attempts = new Map();
+function tooManyAttempts(ip) {
+  const now = Date.now();
+  const list = (attempts.get(ip) || []).filter((t) => now - t < LOGIN_WINDOW_MS);
+  attempts.set(ip, list);
+  return list.length >= LOGIN_MAX_ATTEMPTS;
+}
+function recordFailure(ip) {
+  attempts.set(ip, [...(attempts.get(ip) || []), Date.now()]);
+}
+
+/** Vue complète pour l'organisateur (jamais le jeton d'accès de l'invitation). */
+function adminView(reg) {
+  return {
+    id: reg.id,
+    status: reg.status,
+    partner: reg.status === 'partner',
+    test: Boolean(reg.pay_mode && reg.pay_mode !== 'live'),
+    first_name: reg.first_name || '',
+    last_name: reg.last_name || '',
+    email: reg.email || '',
+    phone: reg.phone || '',
+    company: reg.company || '',
+    role: reg.role || '',
+    activity: reg.activity || '',
+    sector: reg.sector || '',
+    website: reg.website || '',
+    looking: reg.looking || '',
+    offer: reg.offer || '',
+    amount_cents: reg.amount_cents || 0,
+    created_at: reg.created_at || null,
+    paid_at: reg.paid_at || null,
+    checked_in_at: reg.checked_in_at || null,
+    confirmation_sent_at: reg.confirmation_sent_at || null,
+    confirmation_error: reg.confirmation_error || null,
+    recovered: Boolean(reg.recovered_at),
+  };
+}
+
+function partnerId(n) {
+  return `DP-PART${String(n).padStart(2, '0')}`;
+}
+
+/** « BC-PART-3 », « bc part 03 »… → numéro 1 à 10, sinon null. */
+function partnerNumber(code) {
+  const m = String(code || '').trim().toUpperCase().match(/^BC[-\s]?PART[-\s]?(\d{1,2})$/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return n >= 1 && n <= PARTNER_INVITES ? n : null;
+}
+
+function hhmm(iso) {
+  return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)).replace(':', ' h ');
+}
+
+function mount(app, { store, isLive, qrPayload, reconcile, resendInvitation }) {
+  function guard(req, res, next) {
+    if (!isAuthed(req)) return res.status(401).json({ ok: false, error: 'login_required' });
+    next();
+  }
+
+  app.get('/api/gestion/state', (req, res) => {
+    res.json({ ok: true, authed: isAuthed(req), available: Boolean(password()) });
+  });
+
+  app.post('/api/gestion/login', (req, res) => {
+    const ip = req.ip || 'unknown';
+    if (tooManyAttempts(ip)) return res.status(429).json({ ok: false, error: 'too_many_attempts' });
+    const expected = password();
+    if (!expected || !safeEqual(String(req.body?.password || '').trim(), expected)) {
+      recordFailure(ip);
+      return res.status(401).json({ ok: false, error: 'bad_password' });
+    }
+    attempts.delete(ip);
+    setSession(res);
+    res.json({ ok: true });
+  });
+
+  app.post('/api/gestion/logout', (_req, res) => {
+    res.setHeader('Set-Cookie', `${COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`);
+    res.json({ ok: true });
+  });
+
+  async function listFor(includeTest) {
+    await reconcile();
+    return (await store.listAll()).filter((r) => includeTest || isLive(r));
+  }
+
+  app.get('/api/gestion/overview', guard, async (req, res) => {
+    const includeTest = req.query.test === '1';
+    const all = await listFor(includeTest);
+    const now = Date.now();
+    const paid = all.filter((r) => r.status === 'paid');
+    const partners = all.filter((r) => r.status === 'partner');
+    const pending = all.filter((r) => r.status === 'pending' && now - Date.parse(r.created_at) < 3 * 24 * 3600 * 1000);
+    res.json({
+      ok: true,
+      stats: {
+        paid: paid.length,
+        max: maxPaidSeats(),
+        pending: pending.length,
+        present: [...paid, ...partners].filter((r) => r.checked_in_at).length,
+        expected: paid.length + PARTNER_INVITES,
+        partners_present: partners.filter((r) => r.checked_in_at).length,
+        partners_total: PARTNER_INVITES,
+        revenue_cents: paid.filter(isLive).reduce((s, r) => s + (r.amount_cents || 0), 0),
+      },
+      registrations: all
+        .filter((r) => r.status !== 'pending' || pending.includes(r))
+        .sort((a, b) => String(a.last_name).localeCompare(String(b.last_name), 'fr'))
+        .map(adminView),
+    });
+  });
+
+  /**
+   * Contrôle d'entrée. Corps : { qr } (contenu du QR), { id } (référence DP-…) ou { code } (BC-PART-xx).
+   * Réponse : result = ok | already | refused, avec un message prêt à afficher.
+   */
+  app.post('/api/gestion/checkin', guard, async (req, res) => {
+    const allowTest = req.body?.allowTest === true;
+    const raw = String(req.body?.qr || req.body?.id || req.body?.code || '').trim();
+    const refused = (reason, message, extra = {}) => res.json({ ok: true, result: 'refused', reason, message, ...extra });
+    if (!raw) return refused('empty', 'Aucun code lu.');
+
+    // Invitation partenaire
+    const pn = partnerNumber(raw);
+    if (pn) {
+      const id = partnerId(pn);
+      let reg = await store.load(id);
+      if (reg?.checked_in_at) {
+        return res.json({ ok: true, result: 'already', message: `Invitation partenaire N° ${String(pn).padStart(2, '0')} déjà utilisée à ${hhmm(reg.checked_in_at)}.`, registration: adminView(reg) });
+      }
+      reg = reg || {
+        id, status: 'partner', first_name: 'Invité partenaire', last_name: `N° ${String(pn).padStart(2, '0')}`,
+        email: '', company: 'Partenaire / sponsor', created_at: new Date().toISOString(), amount_cents: 0,
+      };
+      reg.checked_in_at = new Date().toISOString();
+      await store.save(reg);
+      return res.json({ ok: true, result: 'ok', message: `Bienvenue — invitation partenaire N° ${String(pn).padStart(2, '0')}.`, registration: adminView(reg) });
+    }
+
+    // QR code (BCDINER|id|signature) ou référence saisie à la main
+    let id = raw.toUpperCase();
+    let fromQr = false;
+    if (raw.startsWith('BCDINER|')) {
+      const parts = raw.split('|');
+      if (parts.length !== 3) return refused('invalid', 'QR code illisible ou inconnu.');
+      id = parts[1];
+      fromQr = true;
+      const reg = /^DP-[A-Z0-9]{6,12}$/.test(id) ? await store.load(id) : null;
+      if (!reg || !safeEqual(raw, qrPayload(reg))) return refused('forged', 'QR code non reconnu : signature invalide.');
+    } else if (/^https?:\/\//i.test(raw) || raw.includes('|')) {
+      return refused('invalid', 'Ce QR code n’est pas une invitation du Business Club.');
+    }
+
+    if (!/^DP-[A-Z0-9]{6,12}$/.test(id)) return refused('invalid', 'Référence inconnue.');
+    const reg = await store.load(id);
+    if (!reg) return refused('unknown', 'Aucune inscription avec cette référence.');
+    if (!isLive(reg) && !allowTest) return refused('test', 'Invitation de TEST (Studio) : non valable le jour J.', { registration: adminView(reg) });
+    if (reg.status !== 'paid' && reg.status !== 'partner') {
+      const why = reg.status === 'pending' ? 'paiement non finalisé' : `inscription ${reg.status === 'cancelled' ? 'annulée' : 'non payée'}`;
+      return refused('unpaid', `Refusé : ${why}.`, { registration: adminView(reg) });
+    }
+    if (reg.checked_in_at) {
+      return res.json({ ok: true, result: 'already', message: `${reg.first_name} ${reg.last_name} : déjà entré(e) à ${hhmm(reg.checked_in_at)}.`, registration: adminView(reg) });
+    }
+    reg.checked_in_at = new Date().toISOString();
+    reg.checked_in_via = fromQr ? 'qr' : 'manual';
+    await store.save(reg);
+    res.json({ ok: true, result: 'ok', message: `Bienvenue ${reg.first_name} ${reg.last_name}.`, registration: adminView(reg) });
+  });
+
+  app.post('/api/gestion/checkin/undo', guard, async (req, res) => {
+    const reg = await store.load(String(req.body?.id || ''));
+    if (!reg) return res.status(404).json({ ok: false, error: 'not_found' });
+    reg.checked_in_at = null;
+    reg.checked_in_via = null;
+    await store.save(reg);
+    res.json({ ok: true, registration: adminView(reg) });
+  });
+
+  app.post('/api/gestion/resend', guard, async (req, res) => {
+    const reg = await store.load(String(req.body?.id || ''));
+    if (!reg || reg.status !== 'paid') return res.status(404).json({ ok: false, error: 'not_found' });
+    const result = await resendInvitation(reg);
+    res.json({ ok: !result.error, error: result.error || null, via: result.via || null });
+  });
+
+  app.get('/api/gestion/export.csv', guard, async (req, res) => {
+    const all = (await listFor(req.query.test === '1')).filter((r) => r.status === 'paid' || r.status === 'partner');
+    const cols = [
+      ['Référence', 'id'], ['Nom', 'last_name'], ['Prénom', 'first_name'], ['Entreprise', 'company'], ['Fonction', 'role'],
+      ['E-mail', 'email'], ['Téléphone', 'phone'], ['Activité', 'activity'], ['Secteur', 'sector'], ['Site / LinkedIn', 'website'],
+      ['Recherche', 'looking'], ['Peut apporter', 'offer'], ['Payé le', 'paid_at'], ['Arrivé à', 'checked_in_at'],
+    ];
+    const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = all.sort((a, b) => String(a.last_name).localeCompare(String(b.last_name), 'fr'))
+      .map((r) => cols.map(([, k]) => q(r[k])).join(';'));
+    res.set('Content-Disposition', 'attachment; filename="inscrits-business-club.csv"')
+      .set('Cache-Control', 'no-store')
+      .type('text/csv; charset=utf-8')
+      .send(`﻿${[cols.map(([h]) => q(h)).join(';'), ...rows].join('\r\n')}`);
+  });
+}
+
+module.exports = { mount, partnerNumber, isAuthed };

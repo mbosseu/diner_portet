@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0b0b0a">
+  <title>Gestion · Business Club</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/gestion.css?v=1">
+</head>
+<body>
+  <header class="g-head">
+    <a class="g-mark" href="index.html"><span>Boxing Center</span><em>Business Club</em></a>
+    <div class="g-head-right">
+      <span class="g-badge">Gestion</span>
+      <button class="g-link" id="logout" type="button" hidden>Déconnexion</button>
+    </div>
+  </header>
+
+  <!-- Connexion -->
+  <main class="g-lock" id="lock" hidden>
+    <p class="g-eyebrow">Espace organisateur</p>
+    <h1>Gestion de <em>l’événement</em></h1>
+    <p class="g-muted">Inscrits, paiements et contrôle des invitations à l’entrée.</p>
+    <form id="loginForm" autocomplete="on">
+      <label for="pwd">Mot de passe</label>
+      <input type="password" id="pwd" name="password" autocomplete="current-password" required>
+      <button class="g-btn" type="submit">Se connecter</button>
+      <p class="g-error" id="loginError" role="alert" hidden></p>
+    </form>
+  </main>
+
+  <!-- Tableau de bord -->
+  <div id="app" hidden>
+    <section class="g-stats" aria-label="Chiffres clés">
+      <div class="g-stat"><span>Inscrits payés</span><b id="sPaid">–</b><small id="sMax"></small></div>
+      <div class="g-stat"><span>Présents</span><b id="sPresent">–</b><small id="sExpected"></small></div>
+      <div class="g-stat"><span>Partenaires</span><b id="sPartners">–</b><small>invitations utilisées</small></div>
+      <div class="g-stat"><span>En attente</span><b id="sPending">–</b><small>paiement non finalisé</small></div>
+      <div class="g-stat"><span>Recettes</span><b id="sRevenue">–</b><small>paiements confirmés</small></div>
+    </section>
+
+    <nav class="g-tabs" role="tablist">
+      <button role="tab" class="g-tab" data-tab="list" aria-selected="true">Inscrits</button>
+      <button role="tab" class="g-tab" data-tab="scan" aria-selected="false">Scanner</button>
+      <button role="tab" class="g-tab" data-tab="present" aria-selected="false">Présents</button>
+    </nav>
+
+    <!-- Inscrits -->
+    <section class="g-panel" id="tab-list">
+      <div class="g-toolbar">
+        <input type="search" id="search" placeholder="Rechercher un nom, une entreprise, un e-mail…" aria-label="Rechercher">
+        <select id="filter" aria-label="Filtrer">
+          <option value="paid">Payés</option>
+          <option value="absent">Payés, pas encore arrivés</option>
+          <option value="pending">Paiement en attente</option>
+          <option value="partner">Partenaires</option>
+          <option value="all">Tous</option>
+        </select>
+      </div>
+      <div class="g-toolbar g-toolbar--actions">
+        <a class="g-btn g-btn--line" id="exportCsv" href="/api/gestion/export.csv">Exporter (Excel)</a>
+        <button class="g-btn g-btn--line" id="print" type="button">Imprimer la liste</button>
+        <label class="g-check"><input type="checkbox" id="showTest"> Inclure les tests</label>
+      </div>
+      <p class="g-count" id="count"></p>
+      <ul class="g-list" id="list"></ul>
+    </section>
+
+    <!-- Scanner -->
+    <section class="g-panel" id="tab-scan" hidden>
+      <div class="g-scan">
+        <div class="g-video">
+          <video id="video" playsinline muted></video>
+          <canvas id="canvas" hidden></canvas>
+          <div class="g-frame" aria-hidden="true"></div>
+          <button class="g-btn" id="startCam" type="button">Activer la caméra</button>
+        </div>
+        <div class="g-result" id="result" data-state="idle" role="status" aria-live="assertive">
+          <span class="g-result-k" id="resultK">Prêt</span>
+          <b id="resultMsg">Présentez le QR code de l’invitation devant la caméra.</b>
+          <small id="resultSub"></small>
+        </div>
+        <form class="g-manual" id="manualForm">
+          <label for="manual">Saisie manuelle</label>
+          <div class="g-manual-row">
+            <input id="manual" placeholder="DP-XXXXXXXX ou BC-PART-01" autocomplete="off" autocapitalize="characters">
+            <button class="g-btn" type="submit">Valider</button>
+          </div>
+          <label class="g-check"><input type="checkbox" id="allowTest"> Accepter les invitations de test (répétition)</label>
+        </form>
+      </div>
+    </section>
+
+    <!-- Présents -->
+    <section class="g-panel" id="tab-present" hidden>
+      <p class="g-count" id="presentCount"></p>
+      <ul class="g-list" id="presentList"></ul>
+    </section>
+  </div>
+
+  <!-- Liste imprimable -->
+  <section class="g-print" id="printArea" aria-hidden="true"></section>
+
+  <script src="js/vendor/jsQR.js"></script>
+  <script src="js/gestion.js?v=1"></script>
+</body>
+</html>

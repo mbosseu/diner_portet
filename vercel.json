@@ -7,7 +7,8 @@
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/studio/pay/(.*)", "destination": "/api" },
     { "source": "/studio/paypal/(.*)", "destination": "/api" },
-    { "source": "/studio", "destination": "/studio.html" }
+    { "source": "/studio", "destination": "/studio.html" },
+    { "source": "/gestion", "destination": "/gestion.html" }
   ],
   "functions": {
     "api/index.js": {

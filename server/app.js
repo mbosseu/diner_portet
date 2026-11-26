@@ -12,6 +12,7 @@ const { sendEmail, isBrevoEnabled } = require('./lib/brevo');
 const store = require('./lib/store');
 const { confirmationEmail, reminderEmail, organizerEmail, invitationLinks } = require('./lib/emails');
 const studio = require('./studio');
+const gestion = require('./gestion');
 
 /* ---------- Utilitaires ---------- */
 
@@ -150,6 +151,37 @@ function paymentModeFor(req) {
 
 /* ---------- Confirmation d'un paiement ---------- */
 
+/** Envoie l'invitation (QR code en pièce jointe) et note le résultat sur l'inscription (sans l'enregistrer). */
+async function deliverInvitation(reg) {
+  try {
+    const mail = confirmationEmail(reg, { qrSrc: await qrSrcForEmail(reg) });
+    const qr = await qrBuffer(reg);
+    const result = await sendEmail({
+      to: reg.email,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+      attachments: [{ name: `invitation-${reg.id}.png`, content: qr.toString('base64') }],
+      outboxOnly: outboxOnlyFor(reg),
+    });
+    reg.confirmation_sent_at = new Date().toISOString();
+    reg.confirmation_via = result.via;
+    reg.confirmation_error = null;
+    return { via: result.via };
+  } catch (err) {
+    reg.confirmation_error = err.message;
+    return { error: err.message };
+  }
+}
+
+/** Back-office : renvoi de l'invitation à la demande de l'organisateur. */
+async function resendInvitation(reg) {
+  const result = await deliverInvitation(reg);
+  reg.resent_at = new Date().toISOString();
+  await store.save(reg);
+  return result;
+}
+
 async function finalizePaid(reg, payment) {
   if (reg.status !== 'paid') {
     reg.status = 'paid';
@@ -160,23 +192,7 @@ async function finalizePaid(reg, payment) {
   const fresh = (await store.load(reg.id)) || reg;
   if (!fresh.confirmation_sent_at) {
     const outboxOnly = outboxOnlyFor(fresh);
-    try {
-      const mail = confirmationEmail(fresh, { qrSrc: await qrSrcForEmail(fresh) });
-      const qr = await qrBuffer(fresh);
-      const result = await sendEmail({
-        to: fresh.email,
-        subject: mail.subject,
-        html: mail.html,
-        text: mail.text,
-        attachments: [{ name: `invitation-${fresh.id}.png`, content: qr.toString('base64') }],
-        outboxOnly,
-      });
-      fresh.confirmation_sent_at = new Date().toISOString();
-      fresh.confirmation_via = result.via;
-      fresh.confirmation_error = null;
-    } catch (err) {
-      fresh.confirmation_error = err.message;
-    }
+    await deliverInvitation(fresh);
     if (process.env.ORGANIZER_EMAIL) {
       try {
         const o = organizerEmail(fresh);
@@ -628,6 +644,7 @@ function createApp() {
     next();
   });
   studio.mount(app, { store, sendReminders, sendRealTestEmails, isLive, publicView });
+  gestion.mount(app, { store, isLive, qrPayload, reconcile: () => reconcileQuietly(), resendInvitation });
 
   app.use('/api', (_req, res) => res.status(404).json({ ok: false, error: 'not_found' }));
   app.use('/api', (err, _req, res, _next) => {
