@@ -1,13 +1,14 @@
 /* Informations de l'événement — à modifier ici uniquement.
-   Les valeurs marquées « À CONFIRMER » sont provisoires. */
+   Programme : 11 h 30 initiation boxe · 12 h 15 déjeuner · ensuite networking. */
 window.EVENT = {
   name: "Business Club — Rencontre Entrepreneurs",
   dateISO: "2026-12-04",
   dateLabel: "Vendredi 4 décembre 2026",
-  startTime: "18:30",            // À CONFIRMER
-  endTime: "23:00",              // À CONFIRMER
+  startTime: "11:30",
+  lunchTime: "12:15",
+  endTime: "15:00",              // fin indicative (agenda)
   venue: "Boxing Center",
-  address: "Portet-sur-Garonne", // À CONFIRMER : adresse complète
+  address: "61 route d'Espagne, 31120 Portet-sur-Garonne",
   price: 10,
   currency: "EUR"
 };

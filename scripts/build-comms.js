@@ -28,6 +28,7 @@ function esc(s) {
 
 const time = (t) => String(t).replace(':', ' h ');
 const startLabel = time(EVENT.startTime);
+const lunchLabel = time(EVENT.lunchTime);
 const price = (EVENT.priceCents / 100).toFixed(0);
 
 /* ---------------- Newsletter ---------------- */
@@ -91,7 +92,7 @@ function newsletter({ web }) {
 </style>
 </head>
 <body style="margin:0;padding:0;background:${C.black};">
-<span style="display:none;max-height:0;overflow:hidden;opacity:0;color:${C.black};">${esc(weekday)} ${day} ${esc(monthYear)} au Boxing Center : initiation boxe, dîner et rencontres entre entrepreneurs. ${price} €, dîner compris.</span>
+<span style="display:none;max-height:0;overflow:hidden;opacity:0;color:${C.black};">${esc(weekday)} ${day} ${esc(monthYear)} au Boxing Center : initiation boxe à ${startLabel}, déjeuner, rencontres entre entrepreneurs. ${price} €, déjeuner compris.</span>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.black}" style="background:${C.black};">
 <tr><td align="center" style="padding:18px 10px 48px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;">
@@ -114,12 +115,12 @@ function newsletter({ web }) {
 
   <!-- Accroche -->
   <tr><td class="px" bgcolor="${C.charcoal}" style="background:${C.charcoal};padding:50px 44px 52px;">
-    ${eyebrow('Première édition · Soirée privée')}
+    ${eyebrow('Première édition · Déjeuner d’affaires')}
     <div class="h1" style="font-family:${SERIF};font-size:62px;line-height:60px;color:${C.ivory};margin:20px 0 28px;">Le ring<br><em style="color:${C.gold};">des affaires</em></div>
     ${rule(70)}
     ${spacer(28)}
-    ${para('Un soir, on enfile les gants avant de serrer des mains. On partage une table, des idées, des ambitions. Et chaque rencontre peut devenir un partenariat.', `font-family:${SERIF};font-size:22px;line-height:31px;color:${C.ivory};`)}
-    ${para(`Le Business Club du Boxing Center vous convie à sa première <span style="color:${C.ivory};">Rencontre Entrepreneurs</span> : une initiation à la boxe, un dîner, et une soirée de rencontres entre entrepreneurs, adhérents, partenaires et sponsors.`)}
+    ${para('Un midi, on enfile les gants avant de serrer des mains. On partage une table, des idées, des ambitions. Et chaque rencontre peut devenir un partenariat.', `font-family:${SERIF};font-size:22px;line-height:31px;color:${C.ivory};`)}
+    ${para(`Le Business Club du Boxing Center vous convie à sa première <span style="color:${C.ivory};">Rencontre Entrepreneurs</span> : une initiation à la boxe, un déjeuner, et un temps de rencontres entre entrepreneurs, adhérents, partenaires et sponsors.`)}
     ${spacer(14)}
     <table role="presentation" cellpadding="0" cellspacing="0"><tr><td bgcolor="${C.gold}" style="background:${C.gold};">
       <a href="${SIGNUP}" style="display:inline-block;padding:18px 44px;font-family:${SANS};font-size:13px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${C.black};text-decoration:none;">Je m’inscris</a>
@@ -144,7 +145,7 @@ function newsletter({ web }) {
     ${eyebrow('Le Business Club')}
     <div style="font-family:${SERIF};font-size:38px;line-height:41px;color:${C.ivory};margin:16px 0 22px;">Un cercle d’entrepreneurs,<br><em style="color:${C.gold};">né sur le ring.</em></div>
     ${para('Au Boxing Center, dirigeants, artisans, commerçants, indépendants et salariés s’entraînent côte à côte chaque semaine. Le Business Club leur donne un rendez-vous pour se rencontrer autrement : sans badge, sans pitch forcé, autour de valeurs que la boxe connaît bien — l’engagement, le respect, la confiance.')}
-    ${para('À l’inscription, chacun indique ce qu’il recherche et ce qu’il peut apporter. Nous nous en servons pour provoquer les bonnes rencontres pendant la soirée.')}
+    ${para('À l’inscription, chacun indique ce qu’il recherche et ce qu’il peut apporter. Nous nous en servons pour provoquer les bonnes rencontres pendant le déjeuner.')}
   </td></tr>
 
   <!-- Galerie -->
@@ -161,9 +162,9 @@ function newsletter({ web }) {
     ${eyebrow('Le programme')}
     ${spacer(28)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-      ${step('I.', 'Initiation boxe', 'Une séance encadrée par nos coachs, accessible à tous les niveaux, même sans jamais avoir boxé. Le meilleur moyen de briser la glace.')}
-      ${step('II.', 'Le dîner', 'À table, entre entrepreneurs. Le repas est compris dans votre participation.')}
-      ${step('III.', 'Rencontres &amp; networking', 'Échanger, se présenter, trouver un client, un fournisseur, un associé — ou simplement de bons contacts près de chez soi.')}
+      ${step('I.', `Initiation boxe <span style="font-family:${SANS};font-size:12px;letter-spacing:2px;color:${C.gold};${LNUM}">&nbsp;${startLabel}</span>`, 'Une séance encadrée par nos coachs, accessible à tous les niveaux, même sans jamais avoir boxé. Le meilleur moyen de briser la glace.')}
+      ${step('II.', `Le déjeuner <span style="font-family:${SANS};font-size:12px;letter-spacing:2px;color:${C.gold};${LNUM}">&nbsp;${lunchLabel}</span>`, 'À table, entre entrepreneurs. Le repas est compris dans votre participation.')}
+      ${step('III.', `Rencontres &amp; networking <span style="font-family:${SANS};font-size:12px;letter-spacing:2px;color:${C.gold};">&nbsp;ENSUITE</span>`, 'Échanger, se présenter, trouver un client, un fournisseur, un associé — ou simplement de bons contacts près de chez soi.')}
     </table>
   </td></tr>
 
@@ -181,10 +182,10 @@ function newsletter({ web }) {
     ${spacer(18)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
       ${info('Date', esc(EVENT.dateLabel))}
-      ${info('Accueil', `Dès ${esc(startLabel)}`)}
+      ${info('Programme', `${esc(startLabel)} · initiation boxe`, `${esc(lunchLabel)} déjeuner, puis networking`)}
       ${info('Lieu', esc(EVENT.venue), esc(EVENT.address))}
       ${info('Tenue', 'Souple pour l’initiation', 'Baskets et tenue de sport')}
-      ${info('Participation', `${price} € par personne`, 'Dîner compris · paiement en ligne à l’inscription')}
+      ${info('Participation', `${price} € par personne`, 'Déjeuner compris · paiement en ligne à l’inscription')}
     </table>
   </td></tr>
 
@@ -196,7 +197,7 @@ function newsletter({ web }) {
           <tr><td align="center" style="padding:44px 26px 46px;">
             ${eyebrow('Places limitées', 'center')}
             <div class="price" style="${LNUM}font-family:${SERIF};font-size:84px;line-height:84px;color:${C.ivory};margin:18px 0 6px;">${price}&nbsp;€</div>
-            <div style="font-family:${SERIF};font-style:italic;font-size:20px;color:${C.muted};">par personne, dîner compris</div>
+            <div style="font-family:${SERIF};font-style:italic;font-size:20px;color:${C.muted};">par personne, déjeuner compris</div>
             <div style="font-family:${SANS};font-size:13px;line-height:22px;color:${C.dim};margin:22px auto 30px;max-width:400px;">
               Réservé aux adhérents du Boxing Center. Inscription et paiement en ligne en quelques clics ; votre invitation officielle avec QR code vous est envoyée aussitôt par e-mail.
             </div>
@@ -243,7 +244,7 @@ function invitations(imgBase) {
       <p class="lead">Le Business Club du Boxing Center a le plaisir de vous convier à sa</p>
       <h1>Rencontre<br><em>Entrepreneurs</em></h1>
       <div class="rule"></div>
-      <p class="prog">Initiation boxe · Dîner · Rencontres</p>
+      <p class="prog">Initiation boxe · Déjeuner · Rencontres</p>
 
       <div class="guest">
         <span>Au nom de</span>
@@ -252,7 +253,7 @@ function invitations(imgBase) {
 
       <dl>
         <div><dt>Date</dt><dd>${esc(EVENT.dateLabel.replace(/ (\d{4})$/, ''))}<small>${esc(EVENT.dateLabel.slice(-4))}</small></dd></div>
-        <div><dt>Accueil</dt><dd>Dès ${esc(startLabel)}</dd></div>
+        <div><dt>Programme</dt><dd>${esc(startLabel)}<small>${esc(lunchLabel)} déjeuner</small></dd></div>
         <div><dt>Lieu</dt><dd>${esc(EVENT.venue)}<small>${esc(EVENT.address)}</small></dd></div>
       </dl>
 

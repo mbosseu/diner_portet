@@ -461,7 +461,7 @@ function createApp() {
         const order = await paypal.createOrder(paypal.config(mode, publicUrl()), {
           registration: reg,
           amountCents: reg.amount_cents,
-          description: 'Dîner Business Club · 4 décembre 2026 · Boxing Center Portet',
+          description: 'Déjeuner Business Club · 4 décembre 2026 · Boxing Center Portet',
           ...paypal.returnUrls(publicUrl(), reg.id, reg.token),
         });
         reg.paypal_order_id = order.orderId;
@@ -470,7 +470,7 @@ function createApp() {
         const checkout = await cawl.createHostedCheckout(cawl.config(mode, publicUrl()), {
           registration: reg,
           amountCents: reg.amount_cents,
-          description: 'Diner Business Club 04/12',
+          description: 'Dejeuner Business Club 04/12',
           returnUrl: cawl.buildReturnUrl(publicUrl(), reg.id, reg.token),
         });
         reg.cawl_hosted_checkout_id = checkout.hostedCheckoutId;
@@ -529,8 +529,8 @@ function createApp() {
       `DTSTART;TZID=Europe/Paris:${d}T${t(EVENT.startTime)}`,
       `DTEND;TZID=Europe/Paris:${d}T${t(EVENT.endTime)}`,
       `SUMMARY:${EVENT.name}`,
-      `LOCATION:${EVENT.venue}\\, ${EVENT.address}`,
-      `DESCRIPTION:Initiation boxe\\, dîner et networking. Invitation ${reg.id}`,
+      `LOCATION:${EVENT.venue}\\, ${EVENT.address.replace(/[,;]/g, (c) => `\\${c}`)}`,
+      `DESCRIPTION:11 h 30 initiation boxe\\, 12 h 15 déjeuner\\, puis networking. Invitation ${reg.id}`,
       'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY', 'DESCRIPTION:Business Club demain', 'END:VALARM',
       'END:VEVENT', 'END:VCALENDAR',
     ].join('\r\n');

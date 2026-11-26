@@ -9,7 +9,8 @@
   /* ---------- Données de l'événement ---------- */
   document.querySelectorAll("[data-event]").forEach(function (el) {
     var k = el.getAttribute("data-event");
-    if (E[k] != null) el.textContent = E[k];
+    if (E[k] == null) return;
+    el.textContent = /Time$/.test(k) ? String(E[k]).replace(":", " h ") : E[k]; // « 11:30 » → « 11 h 30 »
   });
 
   /* ---------- Navigation ---------- */
@@ -67,7 +68,7 @@
   /* ---------- Compte à rebours ---------- */
   var cd = document.getElementById("countdown");
   if (cd && E.dateISO) {
-    var target = new Date(E.dateISO + "T" + (E.startTime || "18:30") + ":00");
+    var target = new Date(E.dateISO + "T" + (E.startTime || "11:30") + ":00");
     var pad = function (n) { return (n < 10 ? "0" : "") + n; };
     var tick = function () {
       var ms = Math.max(0, target - new Date());

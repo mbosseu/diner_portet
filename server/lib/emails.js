@@ -11,6 +11,9 @@ function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+/** « 11:30 » → « 11 h 30 » */
+const time = (t) => String(t || '').replace(':', ' h ');
+
 const SERIF = "'Cormorant Garamond', Garamond, Georgia, 'Times New Roman', serif";
 const SANS = "Manrope, 'Helvetica Neue', Arial, sans-serif";
 
@@ -44,7 +47,7 @@ function details() {
     </td>`;
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
     ${cell('Date', esc(EVENT.dateLabel))}
-    ${cell('Accueil', `Dès ${esc(EVENT.startTime)}`)}
+    ${cell('Accueil', `Dès ${esc(time(EVENT.startTime))}`)}
     ${cell('Lieu', `${esc(EVENT.venue)}<br><span style="font-family:${SANS};font-size:12px;color:#8f8a80;">${esc(EVENT.address)}</span>`)}
   </tr></table>`;
 }
@@ -90,8 +93,8 @@ function confirmationEmail(reg, { qrSrc }) {
   </td></tr>
   <tr><td style="padding:30px 8px 0;font-family:${SANS};font-size:14px;line-height:23px;color:#b9b2a6;">
     Bonjour ${esc(reg.first_name)},<br><br>
-    Votre place est confirmée et votre règlement de ${(reg.amount_cents / 100).toFixed(0)} € (dîner compris) a bien été reçu.
-    Au programme : initiation boxe encadrée par nos coachs, dîner, puis un temps de rencontres entre entrepreneurs.<br><br>
+    Votre place est confirmée et votre règlement de ${(reg.amount_cents / 100).toFixed(0)} € (déjeuner compris) a bien été reçu.
+    Au programme : à ${esc(time(EVENT.startTime))}, initiation boxe encadrée par nos coachs ; à ${esc(time(EVENT.lunchTime))}, déjeuner ; puis un temps de rencontres entre entrepreneurs.<br><br>
     Prévoyez une tenue souple pour l'initiation. Un rappel vous sera envoyé la veille.
   </td></tr>
   <tr><td style="padding:26px 8px 0;">
@@ -102,7 +105,7 @@ function confirmationEmail(reg, { qrSrc }) {
   return {
     subject: `Votre invitation · ${EVENT.shortName} du 4 décembre`,
     html: layout({ preheader: `Place confirmée. Votre invitation avec QR code pour le ${EVENT.dateLabel}.`, body }),
-    text: `Bonjour ${reg.first_name},\n\nVotre place pour la ${EVENT.shortName} est confirmée (${EVENT.dateLabel}, dès ${EVENT.startTime}, ${EVENT.venue}, ${EVENT.address}).\nRéférence : ${reg.id}\nVotre invitation : ${links.view}\n\nBusiness Club · Boxing Center`,
+    text: `Bonjour ${reg.first_name},\n\nVotre place pour la ${EVENT.shortName} est confirmée (${EVENT.dateLabel}, dès ${time(EVENT.startTime)}, ${EVENT.venue}, ${EVENT.address}).\nRéférence : ${reg.id}\nVotre invitation : ${links.view}\n\nBusiness Club · Boxing Center`,
   };
 }
 
@@ -112,20 +115,20 @@ function reminderEmail(reg, { qrSrc }) {
   const body = `
   <tr><td style="background:#191815;border:1px solid #6b5a3a;padding:34px 30px;">
     <div style="font-family:${SANS};font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#c4a46a;">C'est demain</div>
-    <div style="font-family:${SERIF};font-size:36px;line-height:40px;color:#eae5da;margin:14px 0 22px;">On vous attend<br><em style="color:#c4a46a;">demain soir.</em></div>
+    <div style="font-family:${SERIF};font-size:36px;line-height:40px;color:#eae5da;margin:14px 0 22px;">On vous attend<br><em style="color:#c4a46a;">demain midi.</em></div>
     ${details()}
     <div style="font-family:${SANS};font-size:14px;line-height:23px;color:#b9b2a6;margin-top:8px;">
       Bonjour ${esc(reg.first_name)}, petit rappel avant la Rencontre Entrepreneurs.<br>
-      Pensez à une tenue souple pour l'initiation boxe, et présentez ce QR code à l'entrée.
+      Initiation boxe à ${esc(time(EVENT.startTime))}, déjeuner à ${esc(time(EVENT.lunchTime))}, puis networking. Pensez à une tenue souple pour l'initiation, et présentez ce QR code à l'entrée.
     </div>
     <div style="padding-top:24px;"><img src="${qrSrc}" width="140" height="140" alt="QR code de votre invitation" style="display:block;background:#eae5da;padding:8px;"></div>
     <div style="font-family:${SANS};font-size:12px;letter-spacing:2px;color:#c4a46a;margin-top:10px;">${esc(reg.id)}</div>
   </td></tr>
   <tr><td style="padding:26px 8px 0;">${button(links.view, 'Voir mon invitation')}</td></tr>`;
   return {
-    subject: `Rappel · ${EVENT.shortName} demain dès ${EVENT.startTime}`,
-    html: layout({ preheader: `C'est demain : ${EVENT.dateLabel}, dès ${EVENT.startTime}.`, body }),
-    text: `Bonjour ${reg.first_name},\n\nRappel : la ${EVENT.shortName} a lieu demain, ${EVENT.dateLabel}, dès ${EVENT.startTime} au ${EVENT.venue} (${EVENT.address}).\nVotre invitation : ${links.view}\n\nBusiness Club · Boxing Center`,
+    subject: `Rappel · ${EVENT.shortName} demain dès ${time(EVENT.startTime)}`,
+    html: layout({ preheader: `C'est demain : ${EVENT.dateLabel}, dès ${time(EVENT.startTime)}.`, body }),
+    text: `Bonjour ${reg.first_name},\n\nRappel : la ${EVENT.shortName} a lieu demain, ${EVENT.dateLabel}, dès ${time(EVENT.startTime)} au ${EVENT.venue} (${EVENT.address}).\nVotre invitation : ${links.view}\n\nBusiness Club · Boxing Center`,
   };
 }
 

@@ -134,7 +134,8 @@ test('carte acceptée : place confirmée, e-mail avec QR code, invitation consul
 
   const ics = await fetch(`${BASE}/api/registrations/${r.id}/calendar.ics?t=${r.token}`);
   const icsText = await ics.text();
-  assert.match(icsText, /DTSTART;TZID=Europe\/Paris:20261204T1830/);
+  assert.match(icsText, /DTSTART;TZID=Europe\/Paris:20261204T1130/);
+  assert.ok(icsText.includes("LOCATION:Boxing Center\\, 61 route d'Espagne\\, 31120 Portet-sur-Garonne"), 'virgules de l’adresse échappées');
   assert.match(icsText, /TRIGGER:-P1D/);
 
   const view = await fetch(`${BASE}/api/registrations/${r.id}?t=${r.token}`).then((x) => x.json());

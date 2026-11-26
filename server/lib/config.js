@@ -6,10 +6,11 @@ const EVENT = {
   shortName: 'Rencontre Entrepreneurs',
   dateISO: '2026-12-04',
   dateLabel: 'Vendredi 4 décembre 2026',
-  startTime: '18:30', // À CONFIRMER
-  endTime: '23:00', // À CONFIRMER
+  startTime: '11:30', // initiation boxe
+  lunchTime: '12:15', // déjeuner, puis networking
+  endTime: '15:00', // fin indicative (agenda)
   venue: 'Boxing Center',
-  address: 'Portet-sur-Garonne', // À CONFIRMER : adresse complète
+  address: "61 route d'Espagne, 31120 Portet-sur-Garonne",
   priceCents: 1000,
   currency: 'EUR',
   timezone: 'Europe/Paris',
