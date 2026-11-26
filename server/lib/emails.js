@@ -5,6 +5,7 @@
  * Charte : noir #0b0b0a, charbon #191815, or #c4a46a, ivoire #eae5da.
  */
 
+const crypto = require('crypto');
 const { EVENT, publicUrl } = require('./config');
 
 function esc(s) {
@@ -39,6 +40,8 @@ function layout({ preheader, body }) {
     <tr><td style="padding:26px 8px 0;font-family:${SANS};font-size:11px;line-height:18px;color:#6f6a62;">
       Business Club · Boxing Center, ${esc(EVENT.address)}<br>
       Une question ? Répondez simplement à cet e-mail.
+      <!-- Marqueur unique : empêche Gmail de masquer l'e-mail (« ••• ») quand un envoi ressemble au précédent -->
+      <span style="color:#0b0b0a;font-size:1px;line-height:1px;">${crypto.randomBytes(6).toString('hex')}</span>
     </td></tr>
   </table>
 </td></tr></table>

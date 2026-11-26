@@ -320,7 +320,7 @@ async function sendRealTestEmails(reg, to) {
     try {
       const r = await sendEmail({
         to,
-        subject: `[TEST] ${mail.subject}`,
+        subject: `[TEST ${new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }).format(new Date())}] ${mail.subject}`,
         html: mail.html,
         text: mail.text,
         attachments: kind === 'invitation' ? [{ name: `invitation-${reg.id}.png`, content: qr.toString('base64') }] : [],
