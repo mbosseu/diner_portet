@@ -233,7 +233,7 @@ test('commande PayPal : montant, référence et retours corrects', () => {
   assert.equal(paypal.orderState({ status: 'PAYER_ACTION_REQUIRED' }), 'open');
 });
 
-test('variables copiées de Box Plus : compte PayPal de Portet, jamais la base ni la carte de la boutique', () => {
+test('variables copiées de Box Plus : compte PayPal de Portet, CAWL de Portet, jamais la base de la boutique', () => {
   const saved = { ...process.env };
   const id = (c) => c.repeat(80);
   Object.assign(process.env, {
@@ -250,7 +250,7 @@ test('variables copiées de Box Plus : compte PayPal de Portet, jamais la base n
     assert.equal(live.secret, 'portet');
     assert.equal(paypal.liveAccount(), 'portet');
     assert.equal(paypal.config('test').clientId, id('p'));
-    assert.equal(require('../server/lib/payments').provider(), 'paypal');
+    assert.equal(require('../server/lib/payments').provider(), 'cawl', 'carte CAWL de Portet choisie');
     assert.equal(require('../server/lib/store').supabaseConfigured(), false);
   } finally {
     for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];

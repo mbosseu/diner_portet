@@ -2,8 +2,8 @@
 
 /**
  * Choix du prestataire de paiement : CAWL (carte, Crédit Agricole) ou PayPal (compte de Portet).
- * PayPal par défaut ; PAYMENT_PROVIDER=cawl pour passer à la carte (les clés CAWL de la boutique
- * peuvent être présentes sans qu'on veuille s'en servir).
+ * CAWL (carte, compte de Portet) dès que ses clés existent, PayPal sinon.
+ * PAYMENT_PROVIDER=paypal ou cawl force le choix.
  */
 
 const cawl = require('./cawl');
@@ -12,7 +12,7 @@ const paypal = require('./paypal');
 function provider() {
   const forced = String(process.env.PAYMENT_PROVIDER || '').trim().toLowerCase();
   if (forced === 'cawl' || forced === 'paypal') return forced;
-  return 'paypal';
+  return cawl.liveConfigured() ? 'cawl' : 'paypal';
 }
 
 function lib(name = provider()) {
