@@ -34,17 +34,23 @@ function outboxDir() {
   return process.env.VERCEL ? '/tmp/diner-outbox' : path.join(__dirname, '../../data/outbox');
 }
 
-function smtpConfig() {
+/** Jeux d'identifiants SMTP possibles, dans l'ordre d'essai : BREVO_SMTP_* puis SMTP_*. */
+function smtpConfigs() {
   const clean = (v) => String(v || '').trim().replace(/^["']|["']$/g, '');
-  const user = clean(process.env.SMTP_USER || process.env.BREVO_SMTP_LOGIN);
-  const pass = clean(process.env.SMTP_PASS || process.env.BREVO_SMTP_KEY);
-  if (!user || !pass || /^coller/i.test(pass)) return null;
-  return {
-    host: clean(process.env.SMTP_HOST || process.env.BREVO_SMTP_HOST) || 'smtp-relay.brevo.com',
-    port: Number(process.env.SMTP_PORT || process.env.BREVO_SMTP_PORT || 587),
-    user,
-    pass,
-  };
+  const list = [
+    { source: 'BREVO_SMTP_LOGIN/BREVO_SMTP_KEY', user: process.env.BREVO_SMTP_LOGIN, pass: process.env.BREVO_SMTP_KEY, host: process.env.BREVO_SMTP_HOST, port: process.env.BREVO_SMTP_PORT },
+    { source: 'SMTP_USER/SMTP_PASS', user: process.env.SMTP_USER, pass: process.env.SMTP_PASS, host: process.env.SMTP_HOST, port: process.env.SMTP_PORT },
+  ].map((c) => ({
+    source: c.source, user: clean(c.user), pass: clean(c.pass),
+    host: clean(c.host) || 'smtp-relay.brevo.com', port: Number(c.port || 587),
+  })).filter((c) => c.user && c.pass && !/^coller/i.test(c.pass));
+  return list.filter((c, i) => list.findIndex((o) => o.user === c.user && o.pass === c.pass && o.host === c.host) === i);
+}
+
+let workingIndex = 0;
+function smtpConfig() {
+  const list = smtpConfigs();
+  return list[workingIndex] || list[0] || null;
 }
 
 function isSmtpEnabled() {
@@ -55,27 +61,38 @@ function isSmtpEnabled() {
 function smtpInfo() {
   const cfg = smtpConfig();
   if (!cfg) return null;
-  return {
-    host: cfg.host, port: cfg.port,
-    source: process.env.SMTP_USER ? 'SMTP_USER/SMTP_PASS' : 'BREVO_SMTP_LOGIN/BREVO_SMTP_KEY',
-    user_domain: String(cfg.user).split('@')[1] || '(sans @)',
-  };
+  return { host: cfg.host, port: cfg.port, source: cfg.source, user_domain: String(cfg.user).split('@')[1] || '(sans @)' };
 }
 
-let transporter = null;
-function smtpTransport() {
-  if (transporter) return transporter;
+const transporters = new Map();
+function smtpTransport(cfg = smtpConfig()) {
   const nodemailer = require('nodemailer');
-  if (process.env.SMTP_STREAM_FOR_TESTS === '1') {
-    transporter = nodemailer.createTransport({ streamTransport: true, buffer: true });
-    return transporter;
+  if (process.env.SMTP_STREAM_FOR_TESTS === '1') return nodemailer.createTransport({ streamTransport: true, buffer: true });
+  if (!transporters.has(cfg.source)) {
+    transporters.set(cfg.source, nodemailer.createTransport({
+      host: cfg.host, port: cfg.port, secure: cfg.port === 465, auth: { user: cfg.user, pass: cfg.pass },
+      connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000,
+    }));
   }
-  const cfg = smtpConfig();
-  transporter = nodemailer.createTransport({
-    host: cfg.host, port: cfg.port, secure: cfg.port === 465, auth: { user: cfg.user, pass: cfg.pass },
-    connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000,
-  });
-  return transporter;
+  return transporters.get(cfg.source);
+}
+
+/** Envoi SMTP : essaie chaque jeu d'identifiants ; retient celui qui fonctionne. */
+async function sendSmtp(message) {
+  const list = smtpConfigs();
+  let lastErr = null;
+  for (let k = 0; k < list.length; k += 1) {
+    const i = (workingIndex + k) % list.length;
+    try {
+      const info = await smtpTransport(list[i]).sendMail(message);
+      workingIndex = i;
+      return info;
+    } catch (err) {
+      lastErr = err;
+      if (err.code !== 'EAUTH') break; // autre erreur : inutile d'essayer d'autres identifiants
+    }
+  }
+  throw lastErr;
 }
 
 /** Message SMTP : pièces jointes classiques + images intégrées (cid). */
@@ -102,7 +119,7 @@ async function sendEmail({ to, subject, html, text, attachments = [], cc = [], o
   let smtpError = null;
   if (inline.length && !outboxOnly && isBrevoEnabled() && isSmtpEnabled()) {
     try {
-      const info = await smtpTransport().sendMail(smtpMessage({ to, subject, html, text, attachments, inline, cc }));
+      const info = await sendSmtp(smtpMessage({ to, subject, html, text, attachments, inline, cc }));
       return { sent: true, via: 'brevo-smtp', messageId: info.messageId, raw: info.message };
     } catch (err) {
       console.error('smtp', err.message);
@@ -149,13 +166,21 @@ async function sendEmail({ to, subject, html, text, attachments = [], cc = [], o
 
 /** Vérifie la connexion et l'identification SMTP, sans rien envoyer. */
 async function verifySmtp() {
-  if (!isSmtpEnabled()) return { ok: false, error: 'smtp_not_configured' };
-  try {
-    await smtpTransport().verify();
-    return { ok: true, ...smtpInfo() };
-  } catch (err) {
-    return { ok: false, error: `${err.code || ''} ${err.responseCode || ''} ${String(err.message || '').slice(0, 160)}`.trim(), ...smtpInfo() };
+  const list = smtpConfigs();
+  if (!list.length) return { ok: false, error: 'smtp_not_configured' };
+  const tried = [];
+  for (let i = 0; i < list.length; i += 1) {
+    const c = list[i];
+    try {
+      await smtpTransport(c).verify();
+      workingIndex = i;
+      tried.push({ source: c.source, host: c.host, ok: true });
+      return { ok: true, using: c.source, tried };
+    } catch (err) {
+      tried.push({ source: c.source, host: c.host, ok: false, error: `${err.code || ''} ${err.responseCode || ''}`.trim() });
+    }
   }
+  return { ok: false, tried };
 }
 
 module.exports = { sendEmail, isBrevoEnabled, isSmtpEnabled, smtpInfo, verifySmtp, outboxDir };
