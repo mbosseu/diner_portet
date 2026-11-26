@@ -13,3 +13,7 @@ create index if not exists diner_registrations_status_idx on public.diner_regist
 
 -- Accès uniquement par le serveur (clé service_role) : aucune lecture publique.
 alter table public.diner_registrations enable row level security;
+
+-- Les nouveaux projets Supabase ne donnent plus de droits automatiques sur les tables créées en SQL :
+-- on les accorde au seul rôle serveur (clé secrète sb_secret_… / service_role).
+grant select, insert, update, delete on table public.diner_registrations to service_role;

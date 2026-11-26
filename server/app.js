@@ -314,6 +314,14 @@ function eveOfEventISO() {
 
 function createApp() {
   const app = express();
+  /* Express 4 ne rattrape pas les erreurs des routes async : sans ça, une erreur (base injoignable…)
+     laisse la requête sans réponse jusqu'au délai maximal de Vercel. */
+  for (const method of ['get', 'post']) {
+    const original = app[method].bind(app);
+    app[method] = (route, ...handlers) => (handlers.length === 0 ? original(route)
+      : original(route, ...handlers.map((h) => (typeof h === 'function' && h.length < 4
+        ? (req, res, next) => Promise.resolve(h(req, res, next)).catch(next) : h))));
+  }
   app.disable('x-powered-by');
   app.set('trust proxy', true);
   app.use(express.json({ limit: '50kb' }));
@@ -538,6 +546,11 @@ function createApp() {
   studio.mount(app, { store, sendReminders, isLive, publicView });
 
   app.use('/api', (_req, res) => res.status(404).json({ ok: false, error: 'not_found' }));
+  app.use('/api', (err, _req, res, _next) => {
+    console.error('api', err.message);
+    if (!res.headersSent) res.status(500).json({ ok: false, error: 'server_error' });
+  });
+
   return app;
 }
 
