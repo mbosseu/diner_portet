@@ -236,7 +236,7 @@
   var scanning = false;
   var busy = false;
   var lastCode = "";
-  var lastAt = 0;
+  var lastSeen = 0; // dernière fois que ce QR était dans l'image
 
   function setResult(state, k, msg, sub) {
     var el = $("result");
@@ -266,6 +266,7 @@
     setResult("idle", "Vérification…", "Un instant", "");
     api("/api/gestion/checkin", { method: "POST", body: JSON.stringify(payload) }).then(function (r) {
       busy = false;
+      lastSeen = Date.now(); // réseau lent : le délai repart de la réponse, pas de la lecture
       if (r._status === 401) { showLock(); return; }
       var reg = r.registration;
       var sub = reg ? [reg.company, reg.role].filter(Boolean).join(" · ") + (reg.id && reg.status !== "partner" ? " — " + reg.id : "") : "";
@@ -293,11 +294,12 @@
       var img = ctx.getImageData(0, 0, target, target);
       var code = window.jsQR ? window.jsQR(img.data, target, target, { inversionAttempts: "dontInvert" }) : null;
       if (code && code.data) {
+        // Un QR qui reste devant la caméra n'est vérifié qu'une fois (sinon « Entrée validée » devient
+        // « Déjà entré » au bout de quelques secondes). Il est relu s'il quitte l'image 3 s puis revient.
         var now = Date.now();
-        if (code.data !== lastCode || now - lastAt > 4000) {
-          lastCode = code.data; lastAt = now;
-          submit({ qr: code.data });
-        }
+        var again = code.data !== lastCode || now - lastSeen > 3000;
+        lastCode = code.data; lastSeen = now;
+        if (again) submit({ qr: code.data });
       }
     }
     requestAnimationFrame(tick);
