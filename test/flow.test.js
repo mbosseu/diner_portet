@@ -325,6 +325,21 @@ test('production sans clés : aucun paiement simulé, Studio fermé, cron proté
   }
 });
 
+test('production avec clés CAWL mais sans Supabase : inscriptions fermées (aucune perte de données)', async () => {
+  process.env.NODE_ENV = 'production';
+  Object.assign(process.env, { CAWL_MERCHANT_ID: 'M', CAWL_API_KEY_ID: 'K', CAWL_API_SECRET: 'S' });
+  try {
+    const reg = await post('/api/register', person());
+    assert.equal(reg.status, 503);
+    assert.equal(reg.body.error, 'payment_not_configured');
+    const health = await fetch(`${BASE}/api/health`).then((x) => x.json());
+    assert.equal(health.storage_ready, false);
+  } finally {
+    process.env.NODE_ENV = 'test';
+    for (const k of ['CAWL_MERCHANT_ID', 'CAWL_API_KEY_ID', 'CAWL_API_SECRET']) delete process.env[k];
+  }
+});
+
 test('production avec mot de passe Studio : accès seulement avec le bon mot de passe', async () => {
   process.env.NODE_ENV = 'production';
   process.env.STUDIO_PASSWORD = 'secret-studio-123';

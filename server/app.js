@@ -131,9 +131,15 @@ async function qrSrcForEmail(reg) {
   return `data:image/png;base64,${(await qrBuffer(reg)).toString('base64')}`;
 }
 
+/** En production, les inscriptions doivent être enregistrées dans Supabase (le disque de Vercel est temporaire). */
+function storageReady() {
+  return !isProduction() || Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
 /** Mode de paiement d'une nouvelle inscription. */
 function paymentModeFor(req) {
   if (studio.isStudio(req)) return cawl.testConfigured() ? 'test' : 'studio';
+  if (!storageReady()) return null;
   if (cawl.liveConfigured()) return 'live';
   if (!isProduction()) return 'studio'; // poste local sans clés : simulateur
   return null;
@@ -257,6 +263,7 @@ function createApp() {
       cawl: { live: cawl.liveConfigured(), test: cawl.testConfigured() },
       brevo: isBrevoEnabled(),
       storage: process.env.SUPABASE_URL ? 'supabase' : 'local-files',
+      storage_ready: storageReady(),
       studio: studio.isStudio(req),
       seats: { max: maxPaidSeats() },
     });
