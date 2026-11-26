@@ -8,7 +8,7 @@ const { EVENT, publicUrl, maxPaidSeats, isProduction } = require('./lib/config')
 const cawl = require('./lib/cawl');
 const paypal = require('./lib/paypal');
 const payments = require('./lib/payments');
-const { sendEmail, isBrevoEnabled } = require('./lib/brevo');
+const { sendEmail, isBrevoEnabled, isSmtpEnabled } = require('./lib/brevo');
 const store = require('./lib/store');
 const { confirmationEmail, reminderEmail, organizerEmail, invitationLinks } = require('./lib/emails');
 const studio = require('./studio');
@@ -135,10 +135,31 @@ function outboxOnlyFor(reg) {
   return !isLive(reg) && process.env.STUDIO_SEND_REAL_EMAILS !== '1';
 }
 
-/** Source de l'image du QR dans l'e-mail : URL publique (Brevo) ou image intégrée (boîte d'envoi). */
-async function qrSrcForEmail(reg) {
-  if (isBrevoEnabled() && !outboxOnlyFor(reg)) return invitationLinks(reg).qr;
-  return `data:image/png;base64,${(await qrBuffer(reg)).toString('base64')}`;
+/**
+ * Envoi d'un e-mail portant le QR code de l'inscription (invitation, rappel).
+ * - envoi réel : QR intégré au message (cid) via le SMTP Brevo ; à défaut, image hébergée sur le site ;
+ * - boîte d'envoi (tests) : QR intégré en data URI pour la relecture dans le Studio.
+ * Le QR est aussi toujours joint en pièce jointe.
+ */
+async function sendQrEmail(reg, build, { to = reg.email, subjectPrefix = '', outboxOnly = outboxOnlyFor(reg) } = {}) {
+  const qr = (await qrBuffer(reg)).toString('base64');
+  const attachments = [{ name: `invitation-${reg.id}.png`, content: qr }];
+  if (outboxOnly || !isBrevoEnabled()) {
+    const mail = build(`data:image/png;base64,${qr}`);
+    return sendEmail({ to, subject: subjectPrefix + mail.subject, html: mail.html, text: mail.text, attachments, outboxOnly });
+  }
+  const cid = `qr-${reg.id.toLowerCase()}@businessclub`;
+  const inlineMail = build(`cid:${cid}`);
+  const hostedMail = build(invitationLinks(reg).qr);
+  return sendEmail({
+    to,
+    subject: subjectPrefix + inlineMail.subject,
+    html: inlineMail.html,
+    htmlFallback: hostedMail.html,
+    text: inlineMail.text,
+    attachments,
+    inline: [{ cid, name: `qr-${reg.id}.png`, content: qr }],
+  });
 }
 
 /** En production, les inscriptions doivent être enregistrées dans Supabase (le disque de Vercel est temporaire). */
@@ -161,16 +182,7 @@ function paymentModeFor(req) {
 /** Envoie l'invitation (QR code en pièce jointe) et note le résultat sur l'inscription (sans l'enregistrer). */
 async function deliverInvitation(reg) {
   try {
-    const mail = confirmationEmail(reg, { qrSrc: await qrSrcForEmail(reg) });
-    const qr = await qrBuffer(reg);
-    const result = await sendEmail({
-      to: reg.email,
-      subject: mail.subject,
-      html: mail.html,
-      text: mail.text,
-      attachments: [{ name: `invitation-${reg.id}.png`, content: qr.toString('base64') }],
-      outboxOnly: outboxOnlyFor(reg),
-    });
+    const result = await sendQrEmail(reg, (qrSrc) => confirmationEmail(reg, { qrSrc }));
     reg.confirmation_sent_at = new Date().toISOString();
     reg.confirmation_via = result.via;
     reg.confirmation_error = null;
@@ -313,18 +325,11 @@ function confirmPayment(reg, opts) {
  */
 async function sendRealTestEmails(reg, to) {
   if (!isBrevoEnabled()) return { ok: false, error: 'brevo_not_configured' };
-  const qrSrc = invitationLinks(reg).qr;
-  const qr = await qrBuffer(reg);
   const results = [];
-  for (const [kind, mail] of [['invitation', confirmationEmail(reg, { qrSrc })], ['rappel', reminderEmail(reg, { qrSrc })]]) {
+  const stamp = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }).format(new Date());
+  for (const [kind, builder] of [['invitation', confirmationEmail], ['rappel', reminderEmail]]) {
     try {
-      const r = await sendEmail({
-        to,
-        subject: `[TEST ${new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }).format(new Date())}] ${mail.subject}`,
-        html: mail.html,
-        text: mail.text,
-        attachments: [{ name: `invitation-${reg.id}.png`, content: qr.toString('base64') }],
-      });
+      const r = await sendQrEmail(reg, (qrSrc) => builder(reg, { qrSrc }), { to, subjectPrefix: `[TEST ${stamp}] `, outboxOnly: false });
       results.push({ kind, sent: r.sent, via: r.via, messageId: r.messageId || null });
     } catch (err) {
       results.push({ kind, sent: false, error: err.message });
@@ -390,11 +395,7 @@ async function sendReminders(scope) {
     if (reg.status !== 'paid' || reg.reminder_sent_at) continue;
     if ((scope === 'live') !== isLive(reg)) continue;
     try {
-      const mail = reminderEmail(reg, { qrSrc: await qrSrcForEmail(reg) });
-      await sendEmail({
-        to: reg.email, subject: mail.subject, html: mail.html, text: mail.text, outboxOnly: outboxOnlyFor(reg),
-        attachments: [{ name: `invitation-${reg.id}.png`, content: (await qrBuffer(reg)).toString('base64') }],
-      });
+      await sendQrEmail(reg, (qrSrc) => reminderEmail(reg, { qrSrc }));
       reg.reminder_sent_at = new Date().toISOString();
       await store.save(reg);
       sent.push(reg.id);
@@ -436,6 +437,7 @@ function createApp() {
       paypal: { live: paypal.liveConfigured(), test: paypal.testConfigured(), account: paypal.liveAccount(), host: paypal.config('live').base },
       cawl: { live: cawl.liveConfigured(), test: cawl.testConfigured() },
       brevo: isBrevoEnabled(),
+      smtp: isSmtpEnabled(),
       storage: store.supabaseConfigured() ? 'supabase' : 'local-files',
       storage_ready: storageReady(),
       studio: studio.isStudio(req),

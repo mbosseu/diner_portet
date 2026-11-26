@@ -4,6 +4,11 @@
  * Envoi d'e-mails par l'API REST Brevo — même appel que la boutique Box Plus
  * (storefront/lib/brevo-send.js : POST https://api.brevo.com/v3/smtp/email).
  * Sans clé API (développement) : l'e-mail est écrit dans data/outbox pour être relu.
+ *
+ * E-mails avec QR code : envoyés en priorité par le relais SMTP Brevo (mêmes variables que la boutique :
+ * SMTP_USER/SMTP_PASS ou BREVO_SMTP_LOGIN/BREVO_SMTP_KEY), l'image du QR étant intégrée au message
+ * (Content-ID) : elle s'affiche même si l'appli mail bloque les images externes. Si le SMTP n'est pas
+ * configuré ou échoue, envoi par l'API avec `htmlFallback` (image hébergée sur le site).
  */
 
 const fs = require('fs');
@@ -29,8 +34,70 @@ function outboxDir() {
   return process.env.VERCEL ? '/tmp/diner-outbox' : path.join(__dirname, '../../data/outbox');
 }
 
-async function sendEmail({ to, subject, html, text, attachments = [], cc = [], outboxOnly = false }) {
+function smtpConfig() {
+  const clean = (v) => String(v || '').trim().replace(/^["']|["']$/g, '');
+  const user = clean(process.env.SMTP_USER || process.env.BREVO_SMTP_LOGIN);
+  const pass = clean(process.env.SMTP_PASS || process.env.BREVO_SMTP_KEY);
+  if (!user || !pass || /^coller/i.test(pass)) return null;
+  return {
+    host: clean(process.env.SMTP_HOST || process.env.BREVO_SMTP_HOST) || 'smtp-relay.brevo.com',
+    port: Number(process.env.SMTP_PORT || process.env.BREVO_SMTP_PORT || 587),
+    user,
+    pass,
+  };
+}
+
+function isSmtpEnabled() {
+  return Boolean(smtpConfig());
+}
+
+let transporter = null;
+function smtpTransport() {
+  if (transporter) return transporter;
+  const nodemailer = require('nodemailer');
+  if (process.env.SMTP_STREAM_FOR_TESTS === '1') {
+    transporter = nodemailer.createTransport({ streamTransport: true, buffer: true });
+    return transporter;
+  }
+  const cfg = smtpConfig();
+  transporter = nodemailer.createTransport({
+    host: cfg.host, port: cfg.port, secure: cfg.port === 465, auth: { user: cfg.user, pass: cfg.pass },
+    connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000,
+  });
+  return transporter;
+}
+
+/** Message SMTP : pièces jointes classiques + images intégrées (cid). */
+function smtpMessage({ to, subject, html, text, attachments = [], inline = [], cc = [] }) {
+  const s = sender();
+  return {
+    from: { name: s.name, address: s.email },
+    to,
+    cc: cc.filter(Boolean),
+    replyTo: { name: s.name, address: process.env.DINER_REPLY_TO || 'boxingcenter31@gmail.com' },
+    subject,
+    html,
+    text: text || undefined,
+    attachments: [
+      ...inline.map((a) => ({ filename: a.name, content: Buffer.from(a.content, 'base64'), cid: a.cid, contentDisposition: 'inline', contentType: 'image/png' })),
+      ...attachments.map((a) => ({ filename: a.name, content: Buffer.from(a.content, 'base64') })),
+    ],
+  };
+}
+
+async function sendEmail({ to, subject, html, text, attachments = [], cc = [], outboxOnly = false, inline = [], htmlFallback = null }) {
   if (!to) throw new Error('destinataire manquant');
+
+  if (inline.length && !outboxOnly && isBrevoEnabled() && isSmtpEnabled()) {
+    try {
+      const info = await smtpTransport().sendMail(smtpMessage({ to, subject, html, text, attachments, inline, cc }));
+      return { sent: true, via: 'brevo-smtp', messageId: info.messageId, raw: info.message };
+    } catch (err) {
+      console.error('smtp', err.message);
+      if (!htmlFallback) throw err;
+    }
+  }
+  if (inline.length) html = htmlFallback || html;
 
   if (outboxOnly || !isBrevoEnabled()) {
     const dir = outboxDir();
@@ -67,4 +134,4 @@ async function sendEmail({ to, subject, html, text, attachments = [], cc = [], o
   return { sent: true, via: 'brevo-api', messageId: data.messageId };
 }
 
-module.exports = { sendEmail, isBrevoEnabled, outboxDir };
+module.exports = { sendEmail, isBrevoEnabled, isSmtpEnabled, outboxDir };
