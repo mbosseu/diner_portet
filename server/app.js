@@ -310,6 +310,55 @@ async function sendRealTestEmails(reg, to) {
   return { ok: results.every((r) => r.sent), results };
 }
 
+/**
+ * Rattrapage des paiements « en attente » : si l'acheteur a payé puis fermé la page avant le retour
+ * sur le site, rien ne nous prévient (le webhook CAWL du compte de Portet pointe vers la boutique).
+ * On interroge donc nous-mêmes le prestataire pour les inscriptions en attente depuis quelques minutes.
+ * Lancé au plus une fois toutes les RECONCILE_EVERY_MS (2 min) par visite, et à chaque passage du cron.
+ */
+let lastReconcile = 0;
+const RECONCILE_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+
+async function reconcilePending({ force = false } = {}) {
+  const every = Number(process.env.RECONCILE_EVERY_MS ?? 2 * 60 * 1000);
+  const minAge = Number(process.env.RECONCILE_MIN_AGE_MS ?? 3 * 60 * 1000);
+  if (!force && Date.now() - lastReconcile < every) return { skipped: true };
+  lastReconcile = Date.now();
+  const now = Date.now();
+  const due = (await store.listAll()).filter((r) => {
+    if (r.status !== 'pending' || !(r.cawl_hosted_checkout_id || r.paypal_order_id)) return false;
+    const age = now - Date.parse(r.created_at);
+    return age >= minAge && age <= RECONCILE_MAX_AGE_MS;
+  });
+  const recovered = [];
+  for (const reg of due) {
+    try {
+      const result = await confirmPayment(reg);
+      if (result.paid) {
+        recovered.push(reg.id);
+        const fresh = (await store.load(reg.id)) || result.reg;
+        if (!fresh.recovered_at) {
+          fresh.recovered_at = new Date().toISOString();
+          await store.save(fresh);
+        }
+      }
+    } catch (err) {
+      console.error('reconcile', reg.id, err.message);
+    }
+  }
+  return { checked: due.length, recovered };
+}
+
+/** Rattrapage sans jamais ralentir la page plus de quelques secondes. */
+async function reconcileQuietly(opts) {
+  try {
+    return await Promise.race([reconcilePending(opts), new Promise((r) => setTimeout(() => r({ timeout: true }), 6000))]);
+  } catch (err) {
+    console.error('reconcile', err.message);
+    return { error: true };
+  }
+}
+
 /** Rappel de la veille. `scope` : 'live' (vrais inscrits) ou 'test' (studio). */
 async function sendReminders(scope) {
   const sent = [];
@@ -370,6 +419,7 @@ function createApp() {
 
   /* Places restantes (affichage public) */
   app.get('/api/availability', async (_req, res) => {
+    await reconcileQuietly();
     const taken = await store.seatsTaken(isLive);
     res.json({ ok: true, remaining: Math.max(0, maxPaidSeats() - taken), full: taken >= maxPaidSeats() });
   });
@@ -378,6 +428,7 @@ function createApp() {
   app.post('/api/register', async (req, res) => {
     try {
       if (rateLimited(req.ip)) return res.status(429).json({ ok: false, error: 'too_many_attempts' });
+      await reconcileQuietly(); // places à jour avant d'en réserver une
       const { fields, errors } = validate(req.body || {});
       if (Object.keys(errors).length) return res.status(400).json({ ok: false, error: 'invalid_fields', fields: errors });
 
@@ -538,11 +589,12 @@ function createApp() {
     const ok = Boolean(process.env.CRON_SECRET) && auth === `Bearer ${process.env.CRON_SECRET}`;
     const devOk = !isProduction() && !process.env.CRON_SECRET;
     if (!ok && !devOk) return res.status(401).json({ ok: false });
+    const reconciled = await reconcileQuietly({ force: true });
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: EVENT.timezone }).format(new Date());
     const sendsOn = eveOfEventISO();
-    if (today !== sendsOn && req.query.force !== '1') return res.json({ ok: true, skipped: true, today, sends_on: sendsOn });
+    if (today !== sendsOn && req.query.force !== '1') return res.json({ ok: true, skipped: true, today, sends_on: sendsOn, reconciled });
     const result = await sendReminders('live');
-    res.json({ ok: true, sent: result.sent.length, failed: result.failed });
+    res.json({ ok: true, sent: result.sent.length, failed: result.failed, reconciled });
   });
 
   /* Liste des inscrits pour l'organisateur (JSON ou CSV) — vraies inscriptions uniquement */
@@ -550,6 +602,7 @@ function createApp() {
     const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '') || String(req.query.token || '');
     const devOk = !isProduction() && !process.env.ADMIN_TOKEN;
     if (!devOk && !sameToken(process.env.ADMIN_TOKEN, token)) return res.status(401).json({ ok: false });
+    await reconcileQuietly({ force: true });
     const all = (await store.listAll()).filter(isLive);
     const paid = all.filter((r) => r.status === 'paid');
     if (req.query.format === 'csv') {
@@ -569,6 +622,11 @@ function createApp() {
     });
   });
 
+  /* La page d'inscription appelle /api/studio/state à chaque chargement : on en profite pour le rattrapage. */
+  app.get('/api/studio/state', async (_req, _res, next) => {
+    await reconcileQuietly();
+    next();
+  });
   studio.mount(app, { store, sendReminders, sendRealTestEmails, isLive, publicView });
 
   app.use('/api', (_req, res) => res.status(404).json({ ok: false, error: 'not_found' }));

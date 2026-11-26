@@ -358,3 +358,57 @@ test('production avec mot de passe Studio : accès seulement avec le bon mot de 
     delete process.env.STUDIO_PASSWORD;
   }
 });
+
+/* ---------- Rattrapage : payé puis page fermée avant le retour sur le site ---------- */
+
+async function payWithoutReturn(card) {
+  const reg = await post('/api/register', person());
+  const form = card === 'cancel'
+    ? new URLSearchParams({ action: 'cancel' })
+    : new URLSearchParams({ action: 'pay', card, exp: '12/29', cvc: '123' });
+  const back = await fetch(reg.body.redirectUrl, { method: 'POST', body: form, redirect: 'manual' });
+  assert.equal(back.status, 303);
+  return reg.body; // la page de retour n'est jamais ouverte : aucun /confirm
+}
+
+test('page fermée après paiement : la place est rattrapée et l’invitation envoyée', async () => {
+  const { TEST_CARDS } = require('../server/studio');
+  const card = Object.keys(TEST_CARDS).find((k) => TEST_CARDS[k].outcome === 'captured');
+  process.env.RECONCILE_EVERY_MS = '600000';
+  process.env.RECONCILE_MIN_AGE_MS = '0';
+  try {
+    const paid = await payWithoutReturn(card);
+    const cancelled = await payWithoutReturn('cancel');
+    const mailsBefore = outbox().length;
+
+    // Prochain chargement de la page d'inscription par n'importe quel visiteur : rattrapage
+    process.env.RECONCILE_EVERY_MS = '0';
+    await fetch(`${BASE}/api/studio/state`);
+
+    const r1 = await fetch(`${BASE}/api/registrations/${paid.id}?t=${encodeURIComponent(paid.token)}`).then((x) => x.json());
+    const r2 = await fetch(`${BASE}/api/registrations/${cancelled.id}?t=${encodeURIComponent(cancelled.token)}`).then((x) => x.json());
+    const s1 = r1.registration?.status ?? r1.status;
+    const s2 = r2.registration?.status ?? r2.status;
+    assert.equal(s1, 'paid', JSON.stringify(r1));
+    assert.equal(s2, 'cancelled', JSON.stringify(r2));
+    assert.ok(outbox().length > mailsBefore, 'invitation envoyée sans retour sur le site');
+    assert.ok(outbox().some((m) => m.includes(paid.id)), 'e-mail de la bonne inscription');
+  } finally {
+    delete process.env.RECONCILE_EVERY_MS;
+    delete process.env.RECONCILE_MIN_AGE_MS;
+  }
+});
+
+test('rattrapage : rien à faire tant que l’acheteur est encore sur la page de paiement', async () => {
+  process.env.RECONCILE_EVERY_MS = '0';
+  process.env.RECONCILE_MIN_AGE_MS = '0';
+  try {
+    const reg = await post('/api/register', person()); // page banque ouverte, rien payé
+    await fetch(`${BASE}/api/studio/state`);
+    const r = await fetch(`${BASE}/api/registrations/${reg.body.id}?t=${encodeURIComponent(reg.body.token)}`).then((x) => x.json());
+    assert.equal(r.registration?.status ?? r.status, 'pending');
+  } finally {
+    delete process.env.RECONCILE_EVERY_MS;
+    delete process.env.RECONCILE_MIN_AGE_MS;
+  }
+});
