@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "node dev.js",
     "start": "node dev.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "comms": "node scripts/build-comms.js",
+    "comms:pdf": "node scripts/build-comms.js && node scripts/pdf-invitations.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",

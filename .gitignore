@@ -7,3 +7,6 @@ sources/
 .claude/
 .env.*
 !.env.example
+
+# Aperçu local des invitations (pas en ligne)
+public/comms/_preview-invitations.html
