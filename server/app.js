@@ -323,7 +323,7 @@ async function sendRealTestEmails(reg, to) {
         subject: `[TEST ${new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }).format(new Date())}] ${mail.subject}`,
         html: mail.html,
         text: mail.text,
-        attachments: kind === 'invitation' ? [{ name: `invitation-${reg.id}.png`, content: qr.toString('base64') }] : [],
+        attachments: [{ name: `invitation-${reg.id}.png`, content: qr.toString('base64') }],
       });
       results.push({ kind, sent: r.sent, via: r.via, messageId: r.messageId || null });
     } catch (err) {
@@ -391,7 +391,10 @@ async function sendReminders(scope) {
     if ((scope === 'live') !== isLive(reg)) continue;
     try {
       const mail = reminderEmail(reg, { qrSrc: await qrSrcForEmail(reg) });
-      await sendEmail({ to: reg.email, subject: mail.subject, html: mail.html, text: mail.text, outboxOnly: outboxOnlyFor(reg) });
+      await sendEmail({
+        to: reg.email, subject: mail.subject, html: mail.html, text: mail.text, outboxOnly: outboxOnlyFor(reg),
+        attachments: [{ name: `invitation-${reg.id}.png`, content: (await qrBuffer(reg)).toString('base64') }],
+      });
       reg.reminder_sent_at = new Date().toISOString();
       await store.save(reg);
       sent.push(reg.id);

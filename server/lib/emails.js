@@ -103,10 +103,11 @@ function confirmationEmail(reg, { qrSrc }) {
       </td></tr>
       <tr><td align="center" style="padding:8px 30px 30px;border-top:1px dashed #6b5a3a;">
         <div style="padding-top:26px;">
-          <img src="${qrSrc}" width="168" height="168" alt="QR code de votre invitation" style="display:block;background:#eae5da;padding:10px;">
+          <img src="${qrSrc}" width="168" height="168" alt="QR code de votre invitation (également en pièce jointe)" style="display:block;background:#eae5da;padding:10px;">
         </div>
         <div style="font-family:${SANS};font-size:12px;letter-spacing:2px;color:#c4a46a;margin-top:12px;">${esc(reg.id)}</div>
         <div style="font-family:${SERIF};font-style:italic;font-size:15px;color:#8f8a80;margin-top:4px;">À présenter à l'entrée</div>
+        <div style="font-family:${SANS};font-size:11px;line-height:17px;color:#8f8a80;margin-top:12px;">QR code invisible ? Il est aussi en pièce jointe<br>et sur <a href="${links.view}" style="color:#c4a46a;">votre invitation en ligne</a>.</div>
       </td></tr>
     </table>
   </td></tr>
@@ -141,8 +142,9 @@ function reminderEmail(reg, { qrSrc }) {
       Bonjour ${esc(reg.first_name)}, petit rappel avant la Rencontre Entrepreneurs.<br>
       Initiation boxe à ${esc(time(EVENT.startTime))}, déjeuner à ${esc(time(EVENT.lunchTime))}, puis networking. Pensez à une tenue souple pour l'initiation, et présentez ce QR code à l'entrée.
     </div>
-    <div style="padding-top:24px;"><img src="${qrSrc}" width="140" height="140" alt="QR code de votre invitation" style="display:block;background:#eae5da;padding:8px;"></div>
+    <div style="padding-top:24px;"><img src="${qrSrc}" width="140" height="140" alt="QR code de votre invitation (également en pièce jointe)" style="display:block;background:#eae5da;padding:8px;"></div>
     <div style="font-family:${SANS};font-size:12px;letter-spacing:2px;color:#c4a46a;margin-top:10px;">${esc(reg.id)}</div>
+    <div style="font-family:${SANS};font-size:11px;line-height:17px;color:#8f8a80;margin-top:10px;">QR code invisible ? Il est aussi en pièce jointe et sur <a href="${links.view}" style="color:#c4a46a;">votre invitation en ligne</a>.</div>
   </td></tr>
   <tr><td style="padding:26px 8px 0;">${button(links.view, 'Voir mon invitation')}</td></tr>`;
   return {
