@@ -1392,6 +1392,7 @@ em { font-style: italic; }
   line-height: 1.6;
 }
 .pay-error[hidden] { display: none; }
+.link-notice { margin: 0 0 28px; }
 .wait-line {
   display: block;
   position: relative;

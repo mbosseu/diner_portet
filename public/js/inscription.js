@@ -289,6 +289,15 @@
 
   /* ---------- Arrivée sur la page ---------- */
 
+  // Lien d'invitation incomplet ou modifié : on le dit clairement, sans rien révéler de l'inscription.
+  function badLink() {
+    restoreDraft();
+    goTo(1);
+    var n = document.getElementById("linkNotice");
+    n.innerHTML = "Ce lien d’invitation n’est pas valide (il est peut-être incomplet). Si vous avez déjà payé, <b>ne vous réinscrivez pas</b> : rouvrez le lien depuis votre e-mail de confirmation, ou répondez à cet e-mail : nous vous renverrons votre invitation.";
+    n.hidden = false;
+  }
+
   var params = new URLSearchParams(window.location.search);
   var qid = params.get("id");
   var qt = params.get("t");
@@ -302,7 +311,7 @@
         .then(function (res) {
           if (res.ok && res.registration.status === "paid") showInvitation(res.registration, qid, qt);
           else if (res.ok) confirmPayment(qid, qt, 0);
-          else goTo(1);
+          else badLink();
         })
         .catch(function () { goTo(1); });
     }
