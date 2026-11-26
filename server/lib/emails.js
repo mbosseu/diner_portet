@@ -20,10 +20,16 @@ const SANS = "Manrope, 'Helvetica Neue', Arial, sans-serif";
 function layout({ preheader, body }) {
   return `<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(EVENT.name)}</title></head>
-<body style="margin:0;padding:0;background:#0b0b0a;">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no">
+<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark">
+<title>${esc(EVENT.name)}</title>
+<style>
+  /* iPhone et Gmail transforment adresses et dates en liens bleus : on garde la charte. */
+  a[x-apple-data-detectors], u + #body a, #MessageViewBody a { color: inherit !important; text-decoration: none !important; font: inherit !important; }
+</style></head>
+<body id="body" bgcolor="#0b0b0a" style="margin:0;padding:0;background:#0b0b0a;">
 <span style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(preheader)}</span>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b0b0a;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0b0b0a" style="background:#0b0b0a;">
 <tr><td align="center" style="padding:32px 12px;">
   <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;">
     <tr><td style="padding:0 8px 22px;font-family:${SANS};font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8f8a80;">
@@ -39,17 +45,24 @@ function layout({ preheader, body }) {
 </body></html>`;
 }
 
+/** Bloc date / programme / lieu : deux colonnes puis le lieu sur toute la largeur (lisible sur téléphone). */
 function details() {
-  const cell = (label, value) => `
-    <td valign="top" style="padding:0 10px 14px 0;">
+  const nb = (t) => esc(t).replace(/ /g, '&nbsp;');
+  const sub = (t) => `<div style="font-family:${SANS};font-size:12px;line-height:18px;color:#8f8a80;margin-top:2px;">${t}</div>`;
+  const cell = (label, value, attrs = '') => `
+    <td valign="top" ${attrs} style="padding:0 12px 16px 0;">
       <div style="font-family:${SANS};font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#c4a46a;">${label}</div>
       <div style="font-family:${SERIF};font-size:19px;line-height:24px;color:#eae5da;margin-top:4px;">${value}</div>
     </td>`;
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-    ${cell('Date', esc(EVENT.dateLabel))}
-    ${cell('Accueil', `Dès ${esc(time(EVENT.startTime))}`)}
-    ${cell('Lieu', `${esc(EVENT.venue)}<br><span style="font-family:${SANS};font-size:12px;color:#8f8a80;">${esc(EVENT.address)}</span>`)}
-  </tr></table>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      ${cell('Date', `${nb(EVENT.dateLabel.replace(/ \d{4}$/, ''))}${sub(EVENT.dateLabel.slice(-4))}`, 'width="50%"')}
+      ${cell('Programme', `${nb(time(EVENT.startTime))}${sub(`Initiation boxe<br>Déjeuner à ${nb(time(EVENT.lunchTime))}`)}`, 'width="50%"')}
+    </tr>
+    <tr>
+      ${cell('Lieu', `${esc(EVENT.venue)}${sub(esc(EVENT.address).replace(/, /, ',&#8203; '))}`, 'colspan="2"')}
+    </tr>
+  </table>`;
 }
 
 function invitationLinks(reg) {
@@ -71,7 +84,7 @@ function confirmationEmail(reg, { qrSrc }) {
   const name = `${esc(reg.first_name)} ${esc(reg.last_name)}`;
   const company = [reg.role, reg.company].filter(Boolean).map(esc).join(' · ');
   const body = `
-  <tr><td style="background:#191815;border:1px solid #6b5a3a;padding:10px;">
+  <tr><td bgcolor="#191815" style="background:#191815;border:1px solid #6b5a3a;padding:10px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #4a3f2c;">
       <tr><td style="padding:34px 30px 8px;">
         <div style="font-family:${SANS};font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8f8a80;">Invitation nominative · Édition N°01</div>
@@ -99,7 +112,8 @@ function confirmationEmail(reg, { qrSrc }) {
   </td></tr>
   <tr><td style="padding:26px 8px 0;">
     ${button(links.view, 'Voir mon invitation')}
-    &nbsp;
+  </td></tr>
+  <tr><td style="padding:18px 8px 0;">
     <a href="${links.ics}" style="font-family:${SANS};font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#eae5da;text-decoration:underline;">Ajouter à l'agenda</a>
   </td></tr>`;
   return {
@@ -113,7 +127,7 @@ function confirmationEmail(reg, { qrSrc }) {
 function reminderEmail(reg, { qrSrc }) {
   const links = invitationLinks(reg);
   const body = `
-  <tr><td style="background:#191815;border:1px solid #6b5a3a;padding:34px 30px;">
+  <tr><td bgcolor="#191815" style="background:#191815;border:1px solid #6b5a3a;padding:34px 30px;">
     <div style="font-family:${SANS};font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#c4a46a;">C'est demain</div>
     <div style="font-family:${SERIF};font-size:36px;line-height:40px;color:#eae5da;margin:14px 0 22px;">On vous attend<br><em style="color:#c4a46a;">demain midi.</em></div>
     ${details()}

@@ -10,3 +10,4 @@ sources/
 
 # Aperçu local des invitations (pas en ligne)
 public/comms/_preview-invitations.html
+public/comms/_mail-*.html
