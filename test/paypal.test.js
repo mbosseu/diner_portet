@@ -13,9 +13,9 @@ const path = require('path');
 
 const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'diner-paypal-'));
 for (const k of ['CAWL_MERCHANT_ID', 'CAWL_API_KEY_ID', 'CAWL_API_SECRET', 'CAWL_TEST_MERCHANT_ID',
-  'CAWL_TEST_API_KEY_ID', 'CAWL_TEST_API_SECRET', 'BREVO_API_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
+  'CAWL_TEST_API_KEY_ID', 'CAWL_TEST_API_SECRET', 'BREVO_API_KEY', 'DINER_SUPABASE_URL', 'DINER_SUPABASE_SERVICE_ROLE_KEY',
   'CRON_SECRET', 'ADMIN_TOKEN', 'STUDIO_PASSWORD', 'VERCEL', 'VERCEL_ENV', 'ORGANIZER_EMAIL', 'PAYMENT_PROVIDER',
-  'PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'PAYPAL_TEST_CLIENT_ID', 'PAYPAL_TEST_CLIENT_SECRET', 'PAYPAL_MODE']) delete process.env[k];
+  'PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'PAYPAL_TEST_CLIENT_ID', 'PAYPAL_TEST_CLIENT_SECRET', 'PAYPAL_MODE', 'PAYPAL_PORTET_CLIENT_ID', 'PAYPAL_PORTET_CLIENT_SECRET', 'PAYPAL_TEST_PORTET_CLIENT_ID', 'PAYPAL_TEST_PORTET_CLIENT_SECRET']) delete process.env[k];
 Object.assign(process.env, { DATA_DIR: DATA, DISABLE_RATE_LIMIT: '1', MAX_PAID_SEATS: '50', NODE_ENV: 'test' });
 
 const { createApp } = require('../server/app');
@@ -200,7 +200,7 @@ test('variables PayPal à remplir oubliées : non configuré, inscriptions ferm�
   process.env.NODE_ENV = 'production';
   Object.assign(process.env, {
     PAYPAL_CLIENT_ID: 'COLLER_ICI', PAYPAL_CLIENT_SECRET: 'COLLER_ICI',
-    SUPABASE_URL: 'COLLER_ICI', SUPABASE_SERVICE_ROLE_KEY: 'COLLER_ICI',
+    DINER_SUPABASE_URL: 'COLLER_ICI', DINER_SUPABASE_SERVICE_ROLE_KEY: 'COLLER_ICI',
   });
   try {
     const h = await fetch(`${BASE}/api/health`).then((x) => x.json());
@@ -210,7 +210,7 @@ test('variables PayPal à remplir oubliées : non configuré, inscriptions ferm�
     assert.equal((await post('/api/register', person())).status, 503);
   } finally {
     process.env.NODE_ENV = 'test';
-    for (const k of ['PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']) delete process.env[k];
+    for (const k of ['PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'DINER_SUPABASE_URL', 'DINER_SUPABASE_SERVICE_ROLE_KEY']) delete process.env[k];
   }
 });
 
@@ -231,4 +231,28 @@ test('commande PayPal : montant, référence et retours corrects', () => {
   assert.equal(paypal.orderState({ status: 'COMPLETED', purchase_units: [{ payments: { captures: [{ status: 'COMPLETED' }] } }] }), 'paid');
   assert.equal(paypal.orderState({ status: 'APPROVED' }), 'approved');
   assert.equal(paypal.orderState({ status: 'PAYER_ACTION_REQUIRED' }), 'open');
+});
+
+test('variables copiées de Box Plus : compte PayPal de Portet, jamais la base ni la carte de la boutique', () => {
+  const saved = { ...process.env };
+  const id = (c) => c.repeat(80);
+  Object.assign(process.env, {
+    PAYPAL_CLIENT_ID: id('M'), PAYPAL_CLIENT_SECRET: 'minimes',
+    PAYPAL_PORTET_CLIENT_ID: id('P'), PAYPAL_PORTET_CLIENT_SECRET: 'portet',
+    PAYPAL_TEST_CLIENT_ID: id('m'), PAYPAL_TEST_CLIENT_SECRET: 'minimes-test',
+    PAYPAL_TEST_PORTET_CLIENT_ID: id('p'), PAYPAL_TEST_PORTET_CLIENT_SECRET: 'portet-test',
+    CAWL_MERCHANT_ID: 'm', CAWL_API_KEY_ID: 'k', CAWL_API_SECRET: 's',
+    SUPABASE_URL: 'https://boutique.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'x'.repeat(60),
+  });
+  try {
+    const live = paypal.config('live');
+    assert.equal(live.clientId, id('P'));
+    assert.equal(live.secret, 'portet');
+    assert.equal(paypal.liveAccount(), 'portet');
+    assert.equal(paypal.config('test').clientId, id('p'));
+    assert.equal(require('../server/lib/payments').provider(), 'paypal');
+    assert.equal(require('../server/lib/store').supabaseConfigured(), false);
+  } finally {
+    for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
+  }
 });

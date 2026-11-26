@@ -5,8 +5,11 @@
  * (storefront/lib/paypal.js, compte PayPal de Portet).
  *
  * Trois modes, choisis pour chaque inscription (comme pour CAWL) :
- *  - live   : compte PayPal réel (PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET), hôte selon PAYPAL_MODE
- *  - test   : sandbox PayPal avec les clés PAYPAL_TEST_* (Studio uniquement)
+ *  - live   : compte PayPal réel de Portet. Mêmes noms que dans la boutique Box Plus :
+ *             PAYPAL_PORTET_CLIENT_ID / PAYPAL_PORTET_CLIENT_SECRET (prioritaires), sinon
+ *             PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET. Hôte selon PAYPAL_MODE.
+ *             Attention : dans Box Plus, PAYPAL_CLIENT_ID est le compte des Minimes, pas Portet.
+ *  - test   : sandbox PayPal, PAYPAL_TEST_PORTET_* sinon PAYPAL_TEST_* (Studio uniquement)
  *  - studio : simulateur PayPal intégré (server/studio) — aucun compte PayPal contacté
  */
 
@@ -31,12 +34,25 @@ function looksLikeClientId(id) {
   return String(id || '').length >= 60;
 }
 
+/** Identifiants Portet en priorité, puis les noms génériques. */
+function credentials(prefix) {
+  const portetId = envValue(`${prefix}PORTET_CLIENT_ID`);
+  if (portetId) return { clientId: portetId, secret: envValue(`${prefix}PORTET_CLIENT_SECRET`), account: 'portet' };
+  return { clientId: envValue(`${prefix}CLIENT_ID`), secret: envValue(`${prefix}CLIENT_SECRET`), account: 'generic' };
+}
+
 function liveConfigured() {
-  return looksLikeClientId(envValue('PAYPAL_CLIENT_ID')) && Boolean(envValue('PAYPAL_CLIENT_SECRET'));
+  const c = credentials('PAYPAL_');
+  return looksLikeClientId(c.clientId) && Boolean(c.secret);
 }
 
 function testConfigured() {
-  return looksLikeClientId(envValue('PAYPAL_TEST_CLIENT_ID')) && Boolean(envValue('PAYPAL_TEST_CLIENT_SECRET'));
+  const c = credentials('PAYPAL_TEST_');
+  return looksLikeClientId(c.clientId) && Boolean(c.secret);
+}
+
+function liveAccount() {
+  return credentials('PAYPAL_').account;
 }
 
 function config(mode, origin) {
@@ -49,14 +65,16 @@ function config(mode, origin) {
     };
   }
   if (mode === 'test') {
-    return { mode, base: SANDBOX_HOST, clientId: envValue('PAYPAL_TEST_CLIENT_ID'), secret: envValue('PAYPAL_TEST_CLIENT_SECRET') };
+    const c = credentials('PAYPAL_TEST_');
+    return { mode, base: SANDBOX_HOST, clientId: c.clientId, secret: c.secret };
   }
   const liveMode = envValue('PAYPAL_MODE').toLowerCase();
+  const c = credentials('PAYPAL_');
   return {
     mode: 'live',
     base: ['sandbox', 'test'].includes(liveMode) ? SANDBOX_HOST : LIVE_HOST,
-    clientId: envValue('PAYPAL_CLIENT_ID'),
-    secret: envValue('PAYPAL_CLIENT_SECRET'),
+    clientId: c.clientId,
+    secret: c.secret,
   };
 }
 
@@ -212,6 +230,7 @@ function captureId(order) {
 }
 
 module.exports = {
+  liveAccount,
   config,
   liveConfigured,
   testConfigured,

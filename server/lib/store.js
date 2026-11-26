@@ -2,8 +2,10 @@
 
 /**
  * Enregistrement des inscriptions.
- * - Supabase si SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY sont définis (table diner_registrations,
- *   voir supabase/schema.sql) — à utiliser en ligne.
+ * - Supabase si DINER_SUPABASE_URL + DINER_SUPABASE_SERVICE_ROLE_KEY sont définis (table
+ *   diner_registrations, voir supabase/schema.sql) — à utiliser en ligne.
+ *   Les noms SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY sont volontairement ignorés : dans le projet
+ *   Vercel ils peuvent venir de la boutique Box Plus, dont la base ne doit jamais être touchée.
  * - Sinon fichiers JSON dans data/registrations (développement local uniquement).
  */
 
@@ -16,7 +18,7 @@ const PENDING_HOLD_MS = 30 * 60 * 1000; // une place est réservée 30 min penda
 let supabase = null;
 function supabaseEnv() {
   const clean = (v) => String(v || '').trim().replace(/^["']|["']$/g, '');
-  return { url: clean(process.env.SUPABASE_URL), key: clean(process.env.SUPABASE_SERVICE_ROLE_KEY) };
+  return { url: clean(process.env.DINER_SUPABASE_URL), key: clean(process.env.DINER_SUPABASE_SERVICE_ROLE_KEY) };
 }
 
 /** Configuré seulement avec une vraie URL https et une clé (pas un texte « COLLER_ICI » oublié). */

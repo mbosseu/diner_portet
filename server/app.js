@@ -324,7 +324,7 @@ function createApp() {
       ok: true,
       payment_mode: paymentModeFor(req),
       provider: payments.provider(),
-      paypal: { live: paypal.liveConfigured(), test: paypal.testConfigured(), host: paypal.config('live').base },
+      paypal: { live: paypal.liveConfigured(), test: paypal.testConfigured(), account: paypal.liveAccount(), host: paypal.config('live').base },
       cawl: { live: cawl.liveConfigured(), test: cawl.testConfigured() },
       brevo: isBrevoEnabled(),
       storage: store.supabaseConfigured() ? 'supabase' : 'local-files',

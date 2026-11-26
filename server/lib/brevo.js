@@ -20,7 +20,7 @@ function isBrevoEnabled() {
 function sender() {
   return {
     email: process.env.BREVO_SENDER_EMAIL || 'suzinabot@gmail.com',
-    name: process.env.BREVO_SENDER_NAME || 'Business Club · Boxing Center',
+    name: process.env.DINER_SENDER_NAME || 'Business Club · Boxing Center',
   };
 }
 
@@ -44,7 +44,7 @@ async function sendEmail({ to, subject, html, text, attachments = [], cc = [], o
   const body = {
     sender: sender(),
     to: [{ email: to }],
-    replyTo: { email: process.env.BREVO_REPLY_TO || 'boxingcenter31@gmail.com', name: sender().name },
+    replyTo: { email: process.env.DINER_REPLY_TO || 'boxingcenter31@gmail.com', name: sender().name },
     subject,
     htmlContent: html,
     textContent: text || undefined,

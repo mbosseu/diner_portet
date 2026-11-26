@@ -16,7 +16,8 @@ const EVENT = {
 };
 
 function publicUrl() {
-  return String(process.env.PUBLIC_URL || 'http://localhost:5173').replace(/\/+$/, '');
+  const fallback = isProduction() ? 'https://dinerportet.vercel.app' : 'http://localhost:5173';
+  return String(process.env.PUBLIC_URL || fallback).replace(/\/+$/, '');
 }
 
 function maxPaidSeats() {
