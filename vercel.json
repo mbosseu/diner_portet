@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "framework": null,
+  "buildCommand": "",
+  "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/studio/pay/(.*)", "destination": "/api" },
+    { "source": "/studio", "destination": "/studio.html" }
+  ],
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30,
+      "includeFiles": "server/**"
+    }
+  },
+  "crons": [
+    { "path": "/api/cron/reminder", "schedule": "0 9 * * *" }
+  ]
+}

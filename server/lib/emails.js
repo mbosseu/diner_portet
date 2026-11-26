@@ -1,0 +1,157 @@
+'use strict';
+
+/**
+ * Gabarits des e-mails (HTML compatible messageries : tableaux et styles en ligne).
+ * Charte : noir #0b0b0a, charbon #191815, or #c4a46a, ivoire #eae5da.
+ */
+
+const { EVENT, publicUrl } = require('./config');
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+const SERIF = "'Cormorant Garamond', Garamond, Georgia, 'Times New Roman', serif";
+const SANS = "Manrope, 'Helvetica Neue', Arial, sans-serif";
+
+function layout({ preheader, body }) {
+  return `<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(EVENT.name)}</title></head>
+<body style="margin:0;padding:0;background:#0b0b0a;">
+<span style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(preheader)}</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b0b0a;">
+<tr><td align="center" style="padding:32px 12px;">
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;">
+    <tr><td style="padding:0 8px 22px;font-family:${SANS};font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8f8a80;">
+      Boxing Center<br><span style="font-family:${SERIF};font-style:italic;font-size:22px;letter-spacing:0;text-transform:none;color:#eae5da;">Business Club</span>
+    </td></tr>
+    ${body}
+    <tr><td style="padding:26px 8px 0;font-family:${SANS};font-size:11px;line-height:18px;color:#6f6a62;">
+      Business Club · Boxing Center, ${esc(EVENT.address)}<br>
+      Une question ? Répondez simplement à cet e-mail.
+    </td></tr>
+  </table>
+</td></tr></table>
+</body></html>`;
+}
+
+function details() {
+  const cell = (label, value) => `
+    <td valign="top" style="padding:0 10px 14px 0;">
+      <div style="font-family:${SANS};font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#c4a46a;">${label}</div>
+      <div style="font-family:${SERIF};font-size:19px;line-height:24px;color:#eae5da;margin-top:4px;">${value}</div>
+    </td>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+    ${cell('Date', esc(EVENT.dateLabel))}
+    ${cell('Accueil', `Dès ${esc(EVENT.startTime)}`)}
+    ${cell('Lieu', `${esc(EVENT.venue)}<br><span style="font-family:${SANS};font-size:12px;color:#8f8a80;">${esc(EVENT.address)}</span>`)}
+  </tr></table>`;
+}
+
+function invitationLinks(reg) {
+  const base = publicUrl();
+  return {
+    view: `${base}/inscription.html?id=${encodeURIComponent(reg.id)}&t=${encodeURIComponent(reg.token)}`,
+    ics: `${base}/api/registrations/${encodeURIComponent(reg.id)}/calendar.ics?t=${encodeURIComponent(reg.token)}`,
+    qr: `${base}/api/registrations/${encodeURIComponent(reg.id)}/qr.png?t=${encodeURIComponent(reg.token)}`,
+  };
+}
+
+function button(href, label) {
+  return `<a href="${href}" style="display:inline-block;padding:15px 28px;border:1px solid #c4a46a;font-family:${SANS};font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#c4a46a;text-decoration:none;">${label}</a>`;
+}
+
+/** E-mail de confirmation + invitation officielle (QR code). */
+function confirmationEmail(reg, { qrSrc }) {
+  const links = invitationLinks(reg);
+  const name = `${esc(reg.first_name)} ${esc(reg.last_name)}`;
+  const company = [reg.role, reg.company].filter(Boolean).map(esc).join(' · ');
+  const body = `
+  <tr><td style="background:#191815;border:1px solid #6b5a3a;padding:10px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #4a3f2c;">
+      <tr><td style="padding:34px 30px 8px;">
+        <div style="font-family:${SANS};font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8f8a80;">Invitation nominative · N°01</div>
+        <div style="font-family:${SERIF};font-style:italic;font-size:18px;color:#b9b2a6;margin-top:18px;">Le Business Club du Boxing Center a le plaisir de vous convier à sa</div>
+        <div style="font-family:${SERIF};font-size:40px;line-height:44px;color:#eae5da;margin-top:8px;">Rencontre <em style="color:#c4a46a;">Entrepreneurs</em></div>
+        <div style="height:1px;width:110px;background:#c4a46a;margin:24px 0;"></div>
+        <div style="font-family:${SERIF};font-size:28px;color:#eae5da;">${name}</div>
+        <div style="font-family:${SANS};font-size:13px;color:#a39d92;margin:6px 0 24px;">${company}</div>
+        ${details()}
+      </td></tr>
+      <tr><td align="center" style="padding:8px 30px 30px;border-top:1px dashed #6b5a3a;">
+        <div style="padding-top:26px;">
+          <img src="${qrSrc}" width="168" height="168" alt="QR code de votre invitation" style="display:block;background:#eae5da;padding:10px;">
+        </div>
+        <div style="font-family:${SANS};font-size:12px;letter-spacing:2px;color:#c4a46a;margin-top:12px;">${esc(reg.id)}</div>
+        <div style="font-family:${SERIF};font-style:italic;font-size:15px;color:#8f8a80;margin-top:4px;">À présenter à l'entrée</div>
+      </td></tr>
+    </table>
+  </td></tr>
+  <tr><td style="padding:30px 8px 0;font-family:${SANS};font-size:14px;line-height:23px;color:#b9b2a6;">
+    Bonjour ${esc(reg.first_name)},<br><br>
+    Votre place est confirmée et votre règlement de ${(reg.amount_cents / 100).toFixed(0)} € (dîner compris) a bien été reçu.
+    Au programme : initiation boxe encadrée par nos coachs, dîner, puis un temps de rencontres entre entrepreneurs.<br><br>
+    Prévoyez une tenue souple pour l'initiation. Un rappel vous sera envoyé la veille.
+  </td></tr>
+  <tr><td style="padding:26px 8px 0;">
+    ${button(links.view, 'Voir mon invitation')}
+    &nbsp;
+    <a href="${links.ics}" style="font-family:${SANS};font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#eae5da;text-decoration:underline;">Ajouter à l'agenda</a>
+  </td></tr>`;
+  return {
+    subject: `Votre invitation · ${EVENT.shortName} du 4 décembre`,
+    html: layout({ preheader: `Place confirmée. Votre invitation avec QR code pour le ${EVENT.dateLabel}.`, body }),
+    text: `Bonjour ${reg.first_name},\n\nVotre place pour la ${EVENT.shortName} est confirmée (${EVENT.dateLabel}, dès ${EVENT.startTime}, ${EVENT.venue}, ${EVENT.address}).\nRéférence : ${reg.id}\nVotre invitation : ${links.view}\n\nBusiness Club · Boxing Center`,
+  };
+}
+
+/** Rappel envoyé la veille. */
+function reminderEmail(reg, { qrSrc }) {
+  const links = invitationLinks(reg);
+  const body = `
+  <tr><td style="background:#191815;border:1px solid #6b5a3a;padding:34px 30px;">
+    <div style="font-family:${SANS};font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#c4a46a;">C'est demain</div>
+    <div style="font-family:${SERIF};font-size:36px;line-height:40px;color:#eae5da;margin:14px 0 22px;">On vous attend<br><em style="color:#c4a46a;">demain soir.</em></div>
+    ${details()}
+    <div style="font-family:${SANS};font-size:14px;line-height:23px;color:#b9b2a6;margin-top:8px;">
+      Bonjour ${esc(reg.first_name)}, petit rappel avant la Rencontre Entrepreneurs.<br>
+      Pensez à une tenue souple pour l'initiation boxe, et présentez ce QR code à l'entrée.
+    </div>
+    <div style="padding-top:24px;"><img src="${qrSrc}" width="140" height="140" alt="QR code de votre invitation" style="display:block;background:#eae5da;padding:8px;"></div>
+    <div style="font-family:${SANS};font-size:12px;letter-spacing:2px;color:#c4a46a;margin-top:10px;">${esc(reg.id)}</div>
+  </td></tr>
+  <tr><td style="padding:26px 8px 0;">${button(links.view, 'Voir mon invitation')}</td></tr>`;
+  return {
+    subject: `Rappel · ${EVENT.shortName} demain dès ${EVENT.startTime}`,
+    html: layout({ preheader: `C'est demain : ${EVENT.dateLabel}, dès ${EVENT.startTime}.`, body }),
+    text: `Bonjour ${reg.first_name},\n\nRappel : la ${EVENT.shortName} a lieu demain, ${EVENT.dateLabel}, dès ${EVENT.startTime} au ${EVENT.venue} (${EVENT.address}).\nVotre invitation : ${links.view}\n\nBusiness Club · Boxing Center`,
+  };
+}
+
+/** Copie interne pour l'organisateur (préparation du networking). */
+function organizerEmail(reg) {
+  const rows = [
+    ['Nom', `${reg.first_name} ${reg.last_name}`],
+    ['E-mail', reg.email],
+    ['Téléphone', reg.phone],
+    ['Entreprise', reg.company],
+    ['Fonction', reg.role],
+    ['Activité', reg.activity],
+    ['Secteur', reg.sector],
+    ['Site / LinkedIn', reg.website || '—'],
+    ['Recherche', reg.looking],
+    ['Peut apporter', reg.offer],
+    ['Référence', reg.id],
+  ];
+  const html = `<table cellpadding="6" style="font-family:Arial,sans-serif;font-size:14px;border-collapse:collapse;">
+    ${rows.map(([k, v]) => `<tr><td style="color:#666;vertical-align:top;">${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}
+  </table>`;
+  return {
+    subject: `Nouvelle inscription · ${reg.first_name} ${reg.last_name} (${reg.company})`,
+    html,
+    text: rows.map(([k, v]) => `${k} : ${v}`).join('\n'),
+  };
+}
+
+module.exports = { confirmationEmail, reminderEmail, organizerEmail, invitationLinks };

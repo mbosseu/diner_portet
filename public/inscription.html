@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inscription · Business Club · Boxing Center Portet</title>
+  <meta name="description" content="Réservez votre place pour la Rencontre Entrepreneurs du Business Club, le 4 décembre au Boxing Center de Portet.">
+  <meta name="theme-color" content="#080706">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=33">
+</head>
+<body>
+
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="nav scrolled" id="nav">
+    <a class="nav-mark" href="index.html" aria-label="Retour à l'accueil">
+      <span class="nav-mark-top">Boxing Center</span>
+      <span class="nav-mark-main">Business Club</span>
+    </a>
+    <div class="nav-meta">Édition N°01 · Décembre 2026</div>
+    <a class="nav-cta" href="index.html">La soirée</a>
+  </header>
+
+  <div class="reg">
+
+    <aside class="reg-aside">
+      <video autoplay muted loop playsinline poster="assets/hero-poster.jpg" aria-hidden="true">
+        <source src="assets/hero-mobile.mp4" type="video/mp4">
+      </video>
+      <div>
+        <span class="label label--gold">Réservation</span>
+        <h1>Votre place<br><em>au cercle</em></h1>
+      </div>
+      <dl>
+        <div><dt>Date</dt><dd>Ven. 04 déc.</dd></div>
+        <div><dt>Lieu</dt><dd>Portet</dd></div>
+        <div><dt>Participation</dt><dd>10 €</dd></div>
+      </dl>
+    </aside>
+
+    <main class="reg-main">
+
+      <ol class="steps" id="stepper" aria-label="Étapes de l'inscription">
+        <li class="active" data-step="1"><b>i.</b>Vos informations</li>
+        <li data-step="2"><b>ii.</b>Règlement</li>
+        <li data-step="3"><b>iii.</b>Invitation</li>
+      </ol>
+
+      <!-- ÉTAPE 1 -->
+      <form class="panel" id="panel-1" novalidate>
+
+        <fieldset class="block">
+          <legend class="block-head"><b>01</b><span>Vous</span></legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="firstName">Prénom</label>
+              <input id="firstName" name="firstName" autocomplete="given-name" required><span class="bar"></span>
+              <span class="err"></span>
+            </div>
+            <div class="field">
+              <label for="lastName">Nom</label>
+              <input id="lastName" name="lastName" autocomplete="family-name" required><span class="bar"></span>
+              <span class="err"></span>
+            </div>
+            <div class="field">
+              <label for="email">E-mail</label>
+              <input id="email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="vous@entreprise.fr" required><span class="bar"></span>
+              <span class="err"></span>
+            </div>
+            <div class="field">
+              <label for="phone">Téléphone</label>
+              <input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="06 12 34 56 78" required><span class="bar"></span>
+              <span class="err"></span>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="block">
+          <legend class="block-head"><b>02</b><span>Votre activité</span></legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="company">Entreprise</label>
+              <input id="company" name="company" autocomplete="organization" required><span class="bar"></span>
+              <span class="err"></span>
+            </div>
+            <div class="field">
+              <label for="role">Fonction</label>
+              <input id="role" name="role" autocomplete="organization-title" placeholder="Gérant, fondatrice…" required><span class="bar"></span>
+              <span class="err"></span>
+            </div>
+            <div class="field">
+              <label for="activity">Activité</label>
+              <input id="activity" name="activity" placeholder="Ce que vous faites" required><span class="bar"></span>
+              <span class="err"></span>
+            </div>
+            <div class="field">
+              <label for="sector">Secteur d'activité</label>
+              <select id="sector" name="sector" required>
+                <option value="">Choisir</option>
+                <option>Artisanat &amp; BTP</option>
+                <option>Commerce &amp; distribution</option>
+                <option>Restauration &amp; hôtellerie</option>
+                <option>Conseil &amp; services aux entreprises</option>
+                <option>Finance, banque &amp; assurance</option>
+                <option>Immobilier</option>
+                <option>Numérique &amp; tech</option>
+                <option>Communication &amp; marketing</option>
+                <option>Santé, sport &amp; bien-être</option>
+                <option>Industrie &amp; logistique</option>
+                <option>Juridique &amp; comptabilité</option>
+                <option>Autre</option>
+              </select><span class="bar"></span>
+              <span class="err"></span>
+            </div>
+            <div class="field full">
+              <label for="website">Site web ou LinkedIn <span class="opt">(facultatif)</span></label>
+              <input id="website" name="website" type="url" inputmode="url" placeholder="https://"><span class="bar"></span>
+              <span class="err"></span>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="block">
+          <legend class="block-head"><b>03</b><span>Votre réseau</span></legend>
+          <div class="grid-2">
+            <div class="field full">
+              <label for="looking">Que recherchez-vous actuellement dans votre réseau ?</label>
+              <textarea id="looking" name="looking" maxlength="600" placeholder="Clients, partenaires, fournisseurs, recrutement, conseils…" required></textarea>
+              <span class="err"></span>
+            </div>
+            <div class="field full">
+              <label for="offer">Que pouvez-vous apporter au réseau ?</label>
+              <textarea id="offer" name="offer" maxlength="600" placeholder="Votre expertise, vos services, vos contacts…" required></textarea>
+              <span class="err"></span>
+            </div>
+          </div>
+        </fieldset>
+
+        <label class="check" id="consentWrap">
+          <input type="checkbox" id="consent" name="consent" required>
+          <span>J'accepte que mes informations soient utilisées par le Business Club pour organiser la soirée et faciliter les mises en relation entre participants.</span>
+        </label>
+
+        <div class="actions">
+          <span class="note">Étape 1 sur 3 · deux minutes</span>
+          <button class="btn-gold" type="submit">Continuer</button>
+        </div>
+      </form>
+
+      <!-- ÉTAPE 2 -->
+      <section class="panel" id="panel-2" hidden aria-labelledby="payTitle">
+        <h2 class="panel-title" id="payTitle">Votre <em>réservation</em></h2>
+
+        <dl class="summary">
+          <div class="summary-row"><dt>Participant</dt><dd id="sumName">—</dd></div>
+          <div class="summary-row"><dt>Entreprise</dt><dd id="sumCompany">—</dd></div>
+          <div class="summary-row"><dt>Soirée</dt><dd>Rencontre Entrepreneurs · 04.12</dd></div>
+          <div class="summary-row"><dt>Inclus</dt><dd>Initiation, dîner, networking</dd></div>
+          <div class="summary-row total"><dt>Total</dt><dd>10 €</dd></div>
+        </dl>
+
+        <p class="fine">Vous allez être redirigé vers la page de paiement sécurisée du Crédit Agricole (CAWL) pour régler par carte bancaire. Votre invitation officielle vous est envoyée par e-mail dès la confirmation.</p>
+        <p class="pay-error" id="payError" role="alert" hidden></p>
+
+        <div class="actions">
+          <button class="link-back" type="button" id="backTo1">← Modifier</button>
+          <button class="btn-gold" type="button" id="payBtn">Payer 10 €</button>
+        </div>
+      </section>
+
+      <!-- VÉRIFICATION DU PAIEMENT (retour de la banque) -->
+      <section class="panel" id="panel-wait" hidden aria-live="polite">
+        <span class="label label--gold">Paiement</span>
+        <h2 class="panel-title" style="margin-top:16px">Vérification <em>en cours</em></h2>
+        <p class="fine" id="waitText">Nous confirmons votre règlement auprès de la banque. Merci de patienter quelques secondes.</p>
+        <span class="wait-line" aria-hidden="true"></span>
+      </section>
+
+      <!-- ÉTAPE 3 -->
+      <section class="panel" id="panel-3" hidden aria-labelledby="okTitle">
+        <div class="confirm-head">
+          <span class="label label--gold">Réservation confirmée</span>
+          <h2 class="panel-title" id="okTitle" style="margin-top:16px">Bienvenue<br>au <em>cercle</em></h2>
+          <p>Votre invitation officielle vient d'être envoyée à <strong id="okEmail">votre adresse</strong>. Présentez-la à l'entrée le soir de l'événement.</p>
+        </div>
+
+        <article class="ticket" id="ticket" aria-label="Invitation nominative">
+          <div class="ticket-frame">
+            <div class="ticket-main">
+              <div class="ticket-corners" aria-hidden="true"><span>Boxing Center</span><span>N°01</span></div>
+              <p class="ticket-kicker">Invitation nominative</p>
+              <h3 class="ticket-title">Rencontre <em>Entrepreneurs</em></h3>
+              <div class="ticket-rule" aria-hidden="true"><i></i></div>
+              <p class="ticket-name" id="tName">—</p>
+              <p class="ticket-company" id="tCompany">—</p>
+              <dl class="ticket-details">
+                <div><dt>Date</dt><dd>Ven. 4 décembre 2026</dd></div>
+                <div><dt>Accueil</dt><dd>Dès <span data-event="startTime">18:30</span></dd></div>
+                <div><dt>Lieu</dt><dd>Boxing Center, Portet</dd></div>
+              </dl>
+            </div>
+            <div class="ticket-stub">
+              <div class="qr" id="qr" role="img" aria-label="QR code de l'invitation"></div>
+              <div class="ticket-ref" id="tRef">BC-0000</div>
+              <p class="ticket-stub-note">À présenter à l'entrée</p>
+            </div>
+          </div>
+        </article>
+
+        <div class="confirm-actions">
+          <button class="btn-engraved" type="button" id="calBtn">Ajouter à l'agenda</button>
+          <button class="btn-line" type="button" id="printBtn">Enregistrer l'invitation</button>
+        </div>
+
+        <ul class="confirm-notes">
+          <li>Présentez ce QR code à l'entrée, sur téléphone ou imprimé.</li>
+          <li>Un rappel vous sera envoyé la veille, le jeudi 3 décembre.</li>
+          <li>Tenue souple conseillée pour l'initiation boxe.</li>
+        </ul>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="js/config.js?v=33"></script>
+  <script src="js/main.js?v=33"></script>
+  <script src="js/inscription.js?v=33"></script>
+</body>
+</html>

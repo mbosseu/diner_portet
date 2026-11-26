@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Studio · Business Club</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/studio.css?v=2">
+</head>
+<body>
+  <header class="st-head">
+    <a class="st-mark" href="index.html"><span>Boxing Center</span><em>Business Club</em></a>
+    <span class="st-badge">Studio · Tests de paiement</span>
+  </header>
+
+  <main class="st-main">
+
+    <!-- Verrou -->
+    <section class="st-lock" id="lock" hidden>
+      <h1>Studio</h1>
+      <p>Espace de test : dans cette session, les paiements de ce navigateur passent par le simulateur CAWL (ou la préproduction CAWL si des clés de test sont configurées). Aucune transaction réelle.</p>
+      <form id="unlockForm">
+        <label for="pwd" id="pwdLabel">Mot de passe du Studio</label>
+        <input type="password" id="pwd" autocomplete="current-password">
+        <button type="submit" class="st-btn">Ouvrir le Studio</button>
+        <p class="st-error" id="unlockError" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <!-- Tableau de bord -->
+    <section id="dash" hidden>
+      <div class="st-intro">
+        <div>
+          <h1>Studio <em>actif</em></h1>
+          <p>Les paiements lancés depuis ce navigateur sont des tests : <b id="target">simulateur CAWL</b>. Les visiteurs réels ne sont pas concernés.</p>
+        </div>
+        <div class="st-actions">
+          <a class="st-btn" href="inscription.html" id="goForm">Tester une inscription</a>
+          <button class="st-btn st-btn--line" id="refresh">Actualiser</button>
+          <button class="st-btn st-btn--line" id="leave">Quitter le Studio</button>
+        </div>
+      </div>
+
+      <div class="st-grid">
+        <article class="st-panel">
+          <h2>Cartes de test</h2>
+          <ul class="st-cards" id="cards"></ul>
+          <p class="st-note">Expiration : n'importe quelle date future (ex. 12/29) · Cryptogramme : 3 chiffres (ex. 123).</p>
+        </article>
+        <article class="st-panel">
+          <h2>Outils</h2>
+          <div class="st-tools">
+            <button class="st-btn st-btn--line" id="reminders">Envoyer le rappel de la veille (tests)</button>
+            <button class="st-btn st-btn--danger" id="reset">Effacer toutes les données de test</button>
+          </div>
+          <p class="st-note" id="toolMsg" role="status"></p>
+        </article>
+      </div>
+
+      <article class="st-panel">
+        <h2>Inscriptions de test <span id="regCount"></span></h2>
+        <div class="st-table-wrap"><table class="st-table">
+          <thead><tr><th>Réf.</th><th>Participant</th><th>Statut</th><th>Mode</th><th>Confirmation</th><th>Rappel</th></tr></thead>
+          <tbody id="regs"></tbody>
+        </table></div>
+      </article>
+
+      <article class="st-panel">
+        <h2>Paiements simulés</h2>
+        <div class="st-table-wrap"><table class="st-table">
+          <thead><tr><th>Session</th><th>Réf.</th><th>Montant</th><th>Résultat</th><th></th></tr></thead>
+          <tbody id="checkouts"></tbody>
+        </table></div>
+      </article>
+
+      <article class="st-panel">
+        <h2>Boîte d'envoi (e-mails de test)</h2>
+        <div class="st-outbox">
+          <ul id="outbox"></ul>
+          <iframe id="mailPreview" title="Aperçu de l'e-mail"></iframe>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script src="js/studio.js?v=2"></script>
+</body>
+</html>

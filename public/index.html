@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Business Club · Rencontre Entrepreneurs · Boxing Center Portet</title>
+  <meta name="description" content="Vendredi 4 décembre au Boxing Center de Portet : initiation boxe, dîner et networking entre entrepreneurs. 10 € par personne, repas compris.">
+  <meta name="theme-color" content="#080706">
+  <meta property="og:title" content="Business Club · Rencontre Entrepreneurs">
+  <meta property="og:description" content="Initiation boxe, dîner et networking. Vendredi 4 décembre au Boxing Center de Portet.">
+  <meta property="og:image" content="assets/hero-poster.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=33">
+</head>
+<body class="home is-loading">
+
+  <!-- Ouverture façon générique -->
+  <div class="intro" id="intro" aria-hidden="true">
+    <div class="intro-bar intro-bar--top"></div>
+    <div class="intro-bar intro-bar--bottom"></div>
+    <div class="intro-center">
+      <span class="intro-kicker">Boxing Center présente</span>
+      <span class="intro-line"></span>
+      <span class="intro-title">Business Club</span>
+    </div>
+  </div>
+
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="nav" id="nav">
+    <a class="nav-mark" href="index.html" aria-label="Business Club du Boxing Center, accueil">
+      <span class="nav-mark-top">Boxing Center</span>
+      <span class="nav-mark-main">Business Club</span>
+    </a>
+    <div class="nav-meta">Édition N°01 · Décembre 2026</div>
+    <a class="nav-cta" href="inscription.html">Réserver</a>
+  </header>
+
+  <main>
+
+    <!-- HERO -->
+    <section class="hero" id="top">
+      <div class="hero-video">
+        <video id="heroVideo" autoplay muted playsinline loop preload="auto" poster="assets/hero-poster.jpg">
+          <source src="assets/hero-mobile.mp4" type="video/mp4" media="(max-width: 900px)">
+          <source src="assets/hero-desktop.mp4" type="video/mp4">
+        </video>
+      </div>
+      <div class="hero-dip" id="heroDip"></div>
+      <div class="hero-shade"></div>
+
+      <div class="hero-content">
+        <p class="hero-kicker"><span class="rule"></span>Rencontre Entrepreneurs</p>
+        <h1 class="hero-title">
+          <span class="line"><span class="word">Le ring</span></span>
+          <span class="line"><span class="word"><em>des affaires</em></span></span>
+        </h1>
+        <p class="hero-lede">Une initiation à la boxe, un dîner, et une soirée de rencontres entre entrepreneurs, partenaires et adhérents du Boxing Center.</p>
+      </div>
+
+      <div class="hero-info">
+        <dl class="hero-facts">
+          <div><dt>Date</dt><dd>Vendredi 4 décembre</dd></div>
+          <div><dt>Lieu</dt><dd>Boxing Center, Portet</dd></div>
+          <div><dt>Participation</dt><dd>10 €, dîner compris</dd></div>
+        </dl>
+        <a class="hero-cta" href="inscription.html">
+          <span class="hero-cta-text">Réserver ma place</span>
+          <span class="hero-cta-line" aria-hidden="true"></span>
+        </a>
+      </div>
+    </section>
+
+    <!-- MANIFESTE : double page éditoriale -->
+    <section class="manifesto" id="manifeste">
+      <div class="wrap">
+        <header class="folio" aria-hidden="true">
+          <span>02</span>
+          <span class="folio-line"></span>
+          <span>Le Business Club</span>
+        </header>
+
+        <div class="spread">
+          <div class="spread-text">
+            <p class="manifesto-text" data-lines>Un soir, on enfile les <em>gants</em><br class="br-d"> avant de serrer des mains.<br class="br-d"> On partage une <em>table</em>,<br class="br-d"> des idées, des ambitions.<br class="br-d"> Et chaque rencontre peut<br class="br-d"> devenir un <em>partenariat</em>.</p>
+
+            <div class="signature">
+              <span class="sig-rule" aria-hidden="true"></span>
+              <span class="sig-name">Le Business Club</span>
+              <span class="sig-place">Boxing Center · Portet-sur-Garonne</span>
+            </div>
+
+            <div class="manifesto-foot">
+              <p>Entrepreneurs, adhérents, partenaires et sponsors se retrouvent pour une soirée qui sort des codes du networking : on se découvre sur le ring, on se retrouve à table.</p>
+              <a class="link-line" href="#rounds">Le déroulé de la soirée</a>
+            </div>
+          </div>
+
+          <figure class="spread-figure">
+            <div class="spread-photo">
+              <img src="assets/shot-portrait.jpg" alt="Un convive sourit à table, devant le panneau Boxing Center Business Club" loading="lazy">
+            </div>
+            <figcaption>Boxing Center, Portet. <em>Le dîner du Business Club.</em></figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ROUNDS -->
+    <section class="rounds" id="rounds">
+      <div class="rounds-head wrap">
+        <span class="label label--gold">Le déroulé</span>
+        <h2 class="display">Trois <em>rounds</em></h2>
+      </div>
+
+      <div class="rounds-pin" id="roundsPin">
+        <div class="rounds-timer" aria-hidden="true"><span id="roundsProgress"></span></div>
+        <div class="rounds-track" id="roundsTrack">
+
+          <article class="round">
+            <figure class="round-media">
+              <video class="round-video" muted loop playsinline preload="none" poster="assets/clip-ceintures-poster.jpg" aria-label="Les ceintures de champion exposées dans une vitrine éclairée" data-src-d="assets/clip-ceintures-d.mp4" data-src-m="assets/clip-ceintures-m.mp4"></video>
+            </figure>
+            <div class="round-body">
+              <span class="round-num">01</span>
+              <span class="label label--gold">Round un · Ouverture</span>
+              <h3>L'initiation</h3>
+              <p>Une animation boxe encadrée par les coachs du Boxing Center, ouverte à tous les niveaux. Aucune expérience n'est requise : on se découvre autrement, et la glace se brise d'elle-même.</p>
+            </div>
+          </article>
+
+          <article class="round">
+            <figure class="round-media">
+              <video class="round-video" muted loop playsinline preload="none" poster="assets/clip-diner-poster.jpg" aria-label="Deux convives qui rient à table pendant le dîner" data-src-d="assets/clip-diner-d.mp4" data-src-m="assets/clip-diner-m.mp4"></video>
+            </figure>
+            <div class="round-body">
+              <span class="round-num">02</span>
+              <span class="label label--gold">Round deux · À table</span>
+              <h3>Le dîner</h3>
+              <p>Un repas dans une ambiance feutrée, à table avec des entrepreneurs, des adhérents, des partenaires et des sponsors du club. Le repas est compris dans la participation.</p>
+            </div>
+          </article>
+
+          <article class="round">
+            <figure class="round-media">
+              <video class="round-video" muted loop playsinline preload="none" poster="assets/clip-cercle-poster.jpg" aria-label="Des invités en tenue de soirée qui échangent debout" data-src-d="assets/clip-cercle-d.mp4" data-src-m="assets/clip-cercle-m.mp4"></video>
+            </figure>
+            <div class="round-body">
+              <span class="round-num">03</span>
+              <span class="label label--gold">Round trois · Le cercle</span>
+              <h3>Les rencontres</h3>
+              <p>Un temps dédié au networking. Vos réponses à l'inscription nous permettent de rapprocher ceux qui cherchent et ceux qui peuvent apporter.</p>
+            </div>
+          </article>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- BANDEAU -->
+    <div class="marquee" aria-hidden="true">
+      <div class="marquee-inner">
+        <span>Business</span><i></i><span>Réseau</span><i></i><span>Ambition</span><i></i><span>Rencontres</span><i></i><span>Exclusivité</span><i></i>
+        <span>Business</span><i></i><span>Réseau</span><i></i><span>Ambition</span><i></i><span>Rencontres</span><i></i><span>Exclusivité</span><i></i>
+      </div>
+    </div>
+
+    <!-- FENÊTRE VIDÉO -->
+    <section class="reel" id="reel">
+      <div class="reel-frame" id="reelFrame">
+        <picture>
+          <source media="(max-width: 760px)" srcset="assets/gants-champagne-m.jpg">
+          <img src="assets/gants-champagne-d.jpg" alt="Des gants de boxe en cuir noir posés sur une table dressée, à côté d'une coupe de champagne et d'une bougie" loading="lazy">
+        </picture>
+        <div class="reel-overlay">
+          <span class="label">Un cercle restreint</span>
+          <p class="reel-title">Première édition.<br><em>Places limitées.</em></p>
+          <div class="countdown" id="countdown" aria-label="Temps restant avant l'événement">
+            <div><b data-cd="d">00</b><span>jours</span></div>
+            <div><b data-cd="h">00</b><span>heures</span></div>
+            <div><b data-cd="m">00</b><span>minutes</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INVITATION : la carte comme objet -->
+    <section class="invite" id="infos">
+      <div class="wrap">
+        <header class="folio" aria-hidden="true">
+          <span>03</span>
+          <span class="folio-line"></span>
+          <span>L'invitation</span>
+        </header>
+
+        <div class="invite-stage" id="inviteStage">
+          <div class="invite-sheet" aria-hidden="true"></div>
+          <article class="invite-card" id="inviteCard" aria-label="Invitation à la Rencontre Entrepreneurs">
+            <div class="invite-frame">
+              <span class="invite-emboss" aria-hidden="true">BC</span>
+              <div class="invite-corners" aria-hidden="true">
+                <span>Boxing Center</span>
+                <span>N°01</span>
+              </div>
+
+              <div class="invite-head">
+                <p class="invite-intro"><span class="invite-host">Le Business Club du Boxing Center</span>a le plaisir de vous convier à sa</p>
+                <h2 class="invite-title">Rencontre <em class="foil">Entrepreneurs</em></h2>
+              </div>
+
+              <div class="invite-rule" aria-hidden="true"><i></i></div>
+
+              <dl class="invite-grid">
+                <div><dt>Date</dt><dd>Vendredi 4 décembre<span class="dd-sub">2026</span></dd></div>
+                <div><dt>Accueil</dt><dd>Dès <span data-event="startTime">18:30</span><span class="dd-sub">Initiation boxe</span></dd></div>
+                <div><dt>Lieu</dt><dd>Boxing Center<span class="dd-sub" data-event="address">Portet-sur-Garonne</span></dd></div>
+                <div><dt>Participation</dt><dd>10 €<span class="dd-sub">Dîner compris</span></dd></div>
+              </dl>
+
+              <div class="invite-cta">
+                <a class="btn-engraved" href="inscription.html">Réserver ma place</a>
+                <p class="invite-rsvp">R.S.V.P. · Places limitées</p>
+              </div>
+            </div>
+            <span class="invite-glare" aria-hidden="true"></span>
+          </article>
+        </div>
+
+        <ul class="invite-notes">
+          <li><b>Réservation</b>Inscription et règlement en ligne pour confirmer votre place.</li>
+          <li><b>Invitation</b>Nominative, avec QR code, envoyée par e-mail.</li>
+          <li><b>Rappel</b>Un message la veille de la soirée.</li>
+          <li><b>Tenue</b>Souple pour l'initiation, de ville pour le dîner.</li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="footer-top wrap">
+      <div class="footer-sign">
+        <span class="nav-mark-top">Boxing Center</span>
+        <span class="footer-sign-main">Business Club</span>
+        <p>Une initiative du Boxing Center de Portet-sur-Garonne, pour réunir celles et ceux qui entreprennent.</p>
+      </div>
+      <dl class="footer-facts">
+        <div><dt>Rendez-vous</dt><dd>Vendredi 4 décembre 2026</dd></div>
+        <div><dt>Lieu</dt><dd>Boxing Center, Portet-sur-Garonne</dd></div>
+        <div><dt>Participation</dt><dd>10 €, dîner compris</dd></div>
+      </dl>
+      <div class="footer-cta">
+        <a class="btn-engraved" href="inscription.html">Réserver ma place</a>
+      </div>
+    </div>
+
+    <div class="footer-word" aria-hidden="true">Business Club</div>
+
+    <div class="footer-row wrap">
+      <span>© 2026 Boxing Center · Business Club</span>
+      <span>Rencontre Entrepreneurs · Édition N°01</span>
+      <a href="#top" class="footer-up">Retour en haut</a>
+    </div>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+  <script src="js/config.js?v=33"></script>
+  <script src="js/main.js?v=33"></script>
+</body>
+</html>
