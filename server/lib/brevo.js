@@ -34,10 +34,11 @@ function outboxDir() {
   return process.env.VERCEL ? '/tmp/diner-outbox' : path.join(__dirname, '../../data/outbox');
 }
 
-/** Jeux d'identifiants SMTP possibles, dans l'ordre d'essai : BREVO_SMTP_* puis SMTP_*. */
+/** Jeux d'identifiants SMTP possibles, dans l'ordre d'essai : DINER_SMTP_* (propres au dîner), BREVO_SMTP_*, SMTP_*. */
 function smtpConfigs() {
   const clean = (v) => String(v || '').trim().replace(/^["']|["']$/g, '');
   const list = [
+    { source: 'DINER_SMTP_LOGIN/DINER_SMTP_KEY', user: process.env.DINER_SMTP_LOGIN, pass: process.env.DINER_SMTP_KEY },
     { source: 'BREVO_SMTP_LOGIN/BREVO_SMTP_KEY', user: process.env.BREVO_SMTP_LOGIN, pass: process.env.BREVO_SMTP_KEY, host: process.env.BREVO_SMTP_HOST, port: process.env.BREVO_SMTP_PORT },
     { source: 'SMTP_USER/SMTP_PASS', user: process.env.SMTP_USER, pass: process.env.SMTP_PASS, host: process.env.SMTP_HOST, port: process.env.SMTP_PORT },
   ].map((c) => ({
