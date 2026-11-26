@@ -198,14 +198,14 @@
       li.classList.toggle("done", n < 2);
     });
     document.getElementById("waitText").textContent = text ||
-      "Nous confirmons votre règlement auprès de la banque. Merci de patienter quelques secondes.";
+      "Nous confirmons votre règlement auprès de la plateforme de paiement. Merci de patienter quelques secondes.";
   }
 
-  function confirmPayment(id, t, attempt) {
+  function confirmPayment(id, t, attempt, cancelled) {
     return fetch("/api/registrations/" + encodeURIComponent(id) + "/confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ t: t })
+      body: JSON.stringify({ t: t, cancelled: !!cancelled })
     })
       .then(function (r) { return r.json(); })
       .then(function (res) {
@@ -216,7 +216,7 @@
           restoreDraft();
           goTo(2);
           showPayError(res.refused
-            ? "Le paiement a été refusé par votre banque. Aucun montant n’a été débité : vous pouvez réessayer avec une autre carte."
+            ? "Le paiement a été refusé. Aucun montant n’a été débité : vous pouvez réessayer avec un autre moyen de paiement."
             : "Le paiement a été annulé. Votre place n’est pas encore réservée : vous pouvez reprendre le règlement.");
           return;
         }
@@ -225,11 +225,11 @@
           return;
         }
         if (attempt < 6) {
-          showWait("Votre banque finalise la transaction. Merci de patienter quelques secondes…");
+          showWait("La transaction est en cours de finalisation. Merci de patienter quelques secondes…");
           setTimeout(function () { confirmPayment(id, t, attempt + 1); }, 2500);
           return;
         }
-        showWait("Votre paiement est en cours de validation par la banque. Vous recevrez votre invitation par e-mail dès sa confirmation : inutile de payer une seconde fois.");
+        showWait("Votre paiement est en cours de validation par la plateforme de paiement. Vous recevrez votre invitation par e-mail dès sa confirmation : inutile de payer une seconde fois.");
       })
       .catch(function () {
         showWait("Impossible de vérifier le paiement pour le moment. Si vous avez été débité, votre invitation vous sera envoyée par e-mail.");
@@ -269,6 +269,9 @@
   fetch("/api/studio/state", { credentials: "same-origin" })
     .then(function (r) { return r.json(); })
     .then(function (s) {
+      if (s.provider === "cawl") {
+        document.getElementById("payInfo").textContent = "Vous allez être redirigé vers la page de paiement sécurisée du Crédit Agricole (CAWL) pour régler par carte bancaire. Votre invitation officielle vous est envoyée par e-mail dès la confirmation.";
+      }
       if (!s.studio) return;
       var b = document.createElement("a");
       b.className = "studio-banner";
@@ -285,8 +288,8 @@
   var qt = params.get("t");
   if (qid && qt) {
     showWait();
-    if (params.get("cawl_return")) {
-      confirmPayment(qid, qt, 0);
+    if (params.get("pay_return") || params.get("cawl_return")) {
+      confirmPayment(qid, qt, 0, params.get("cancelled") === "1");
     } else {
       fetch("/api/registrations/" + encodeURIComponent(qid) + "?t=" + encodeURIComponent(qt))
         .then(function (r) { return r.json(); })

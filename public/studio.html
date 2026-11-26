@@ -21,7 +21,7 @@
     <!-- Verrou -->
     <section class="st-lock" id="lock" hidden>
       <h1>Studio</h1>
-      <p>Espace de test : dans cette session, les paiements de ce navigateur passent par le simulateur CAWL (ou la préproduction CAWL si des clés de test sont configurées). Aucune transaction réelle.</p>
+      <p>Espace de test : dans cette session, les paiements de ce navigateur passent par un simulateur (ou par le bac à sable du prestataire si des clés de test sont configurées). Aucune transaction réelle.</p>
       <form id="unlockForm">
         <label for="pwd" id="pwdLabel">Mot de passe du Studio</label>
         <input type="password" id="pwd" autocomplete="current-password">
@@ -35,7 +35,7 @@
       <div class="st-intro">
         <div>
           <h1>Studio <em>actif</em></h1>
-          <p>Les paiements lancés depuis ce navigateur sont des tests : <b id="target">simulateur CAWL</b>. Les visiteurs réels ne sont pas concernés.</p>
+          <p>Les paiements lancés depuis ce navigateur sont des tests : <b id="target">simulateur</b>. Les visiteurs réels ne sont pas concernés.</p>
         </div>
         <div class="st-actions">
           <a class="st-btn" href="inscription.html" id="goForm">Tester une inscription</a>
@@ -46,9 +46,9 @@
 
       <div class="st-grid">
         <article class="st-panel">
-          <h2>Cartes de test</h2>
+          <h2 id="cardsTitle">Cartes de test</h2>
           <ul class="st-cards" id="cards"></ul>
-          <p class="st-note">Expiration : n'importe quelle date future (ex. 12/29) · Cryptogramme : 3 chiffres (ex. 123).</p>
+          <p class="st-note" id="cardsNote">Expiration : n'importe quelle date future (ex. 12/29) · Cryptogramme : 3 chiffres (ex. 123).</p>
         </article>
         <article class="st-panel">
           <h2>Outils</h2>
@@ -86,6 +86,6 @@
     </section>
   </main>
 
-  <script src="js/studio.js?v=2"></script>
+  <script src="js/studio.js?v=3"></script>
 </body>
 </html>

@@ -4,8 +4,8 @@
  * STUDIO — environnement de test des paiements, sur le modèle du studio Box Plus (/dev).
  *
  * - Une session Studio (cookie signé) bascule les paiements de ce navigateur vers :
- *     · la préproduction CAWL si des clés CAWL_TEST_* existent,
- *     · sinon le simulateur CAWL ci-dessous.
+ *     · le bac à sable du prestataire actif (CAWL_TEST_* ou PAYPAL_TEST_*) si ses clés existent,
+ *     · sinon le simulateur de ce prestataire ci-dessous (CAWL ou PayPal).
  *   Les visiteurs normaux ne sont jamais concernés.
  * - Le simulateur reproduit l'API CAWL (création / lecture d'un Hosted Checkout, mêmes formats
  *   de réponse) et VÉRIFIE la signature GCS v1HMAC de chaque appel, comme le ferait CAWL.
@@ -17,6 +17,8 @@ const fs = require('fs');
 const path = require('path');
 
 const cawl = require('./lib/cawl');
+const paypal = require('./lib/paypal');
+const payments = require('./lib/payments');
 const { publicUrl, isProduction, EVENT } = require('./lib/config');
 const { outboxDir } = require('./lib/brevo');
 
@@ -30,6 +32,21 @@ const TEST_CARDS = {
   '4000000000000259': { outcome: 'pending', label: 'Paiement en attente, confirmé ensuite par webhook' },
   '4000000000009995': { outcome: 'tampered', label: 'Montant falsifié (contrôle de sécurité)' },
 };
+
+/* Comptes acheteurs de test du simulateur PayPal → scénario */
+const PAYPAL_ACCOUNTS = {
+  'acheteur.accepte@studio.test': { outcome: 'captured', label: 'Paiement accepté' },
+  'acheteur.refuse@studio.test': { outcome: 'rejected', label: 'Moyen de paiement refusé à la capture' },
+  'acheteur.attente@studio.test': { outcome: 'pending', label: 'Paiement en attente, confirmé ensuite par webhook' },
+  'acheteur.fraude@studio.test': { outcome: 'tampered', label: 'Montant falsifié (contrôle de sécurité)' },
+};
+
+/** Cible des paiements du Studio : bac à sable réel ou simulateur, selon le prestataire actif. */
+function studioTarget() {
+  const provider = payments.provider();
+  if (provider === 'paypal') return paypal.testConfigured() ? 'paypal-sandbox' : 'paypal-simulator';
+  return cawl.testConfigured() ? 'cawl-preprod' : 'simulator';
+}
 
 /* ---------- Session Studio ---------- */
 
@@ -82,7 +99,7 @@ function checkoutsDir() {
 }
 
 function safeCheckoutId(id) {
-  return /^HC-[a-f0-9]{16}$/.test(String(id || '')) ? String(id) : null;
+  return /^(HC-[a-f0-9]{16}|S[0-9A-F]{16})$/.test(String(id || '')) ? String(id) : null;
 }
 
 function saveCheckout(c) {
@@ -131,6 +148,61 @@ function cawlView(c) {
       },
     },
   };
+}
+
+/** Réponse au format PayPal Orders v2 pour une commande simulée. */
+function paypalView(c) {
+  const euros = paypal.eurosFromCents(c.amount);
+  const unit = {
+    reference_id: c.merchantReference,
+    custom_id: c.merchantReference,
+    amount: { currency_code: 'EUR', value: euros },
+  };
+  let status = 'PAYER_ACTION_REQUIRED';
+  if (c.outcome && c.outcome !== 'cancelled') status = 'APPROVED';
+  if (c.captured) {
+    status = 'COMPLETED';
+    unit.payments = {
+      captures: [{
+        id: c.capture_id,
+        status: c.outcome === 'pending' ? 'PENDING' : 'COMPLETED',
+        custom_id: c.merchantReference,
+        amount: { currency_code: 'EUR', value: c.outcome === 'tampered' ? '1.00' : euros },
+      }],
+    };
+  }
+  return {
+    id: c.id,
+    status,
+    purchase_units: [unit],
+    links: [
+      { rel: 'self', href: `${publicUrl()}/api/studio/paypal/v2/checkout/orders/${c.id}`, method: 'GET' },
+      { rel: 'payer-action', href: `${publicUrl()}/studio/paypal/${c.id}`, method: 'GET' },
+    ],
+  };
+}
+
+function paypalToken() {
+  return crypto.createHmac('sha256', paypal.studioSecret()).update('access-token').digest('hex');
+}
+
+function sameString(a, b) {
+  const x = Buffer.from(String(a));
+  const y = Buffer.from(String(b));
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+}
+
+/** Le simulateur exige le même jeton OAuth que PayPal (obtenu avec l'identifiant et le secret). */
+function paypalAuthorized(req) {
+  return sameString(req.headers.authorization || '', `Bearer ${paypalToken()}`);
+}
+
+function paypalError(res, status, issue, description) {
+  return res.status(status).json({
+    name: status === 401 ? 'AUTHENTICATION_FAILURE' : 'UNPROCESSABLE_ENTITY',
+    message: description,
+    details: [{ issue, description }],
+  });
 }
 
 /** Vérifie la signature GCS v1HMAC envoyée par notre propre client CAWL. */
@@ -197,9 +269,140 @@ document.getElementById('card').value=b.dataset.card.replace(/(\\d{4})(?=\\d)/g,
 </body></html>`;
 }
 
+/* ---------- Page « PayPal » simulée ---------- */
+
+function paypalPage(c, error = '') {
+  const amount = (c.amount / 100).toFixed(2).replace('.', ',');
+  const accounts = Object.entries(PAYPAL_ACCOUNTS).map(([email, v]) =>
+    `<button type="button" class="tc" data-email="${esc(email)}"><b>${esc(email)}</b><span>${esc(v.label)}</span></button>`).join('');
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Paiement PayPal · Studio</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f2f4f7;font-family:Arial,Helvetica,sans-serif;color:#1d2433}
+.top{background:#1d2b4f;color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;font-size:14px}
+.badge{background:#ffcf33;color:#1d2433;font-weight:bold;font-size:11px;padding:4px 8px;letter-spacing:.06em}
+main{max-width:460px;margin:28px auto;padding:0 16px}
+.card{background:#fff;border:1px solid #d6dae1;padding:24px}
+.merchant{font-size:13px;color:#5b6475}.amount{font-size:30px;font-weight:bold;margin:6px 0 4px}.ref{font-size:12px;color:#5b6475}
+label{display:block;font-size:12px;font-weight:bold;margin:16px 0 6px;color:#3b4456}
+input{width:100%;padding:12px;font-size:16px;border:1px solid #c3c9d3}
+.pay{width:100%;margin-top:20px;padding:15px;background:#1d2b4f;color:#fff;border:0;font-size:16px;font-weight:bold;cursor:pointer;border-radius:24px}
+.cancel{display:block;text-align:center;margin-top:14px;color:#5b6475;font-size:13px;background:none;border:0;width:100%;cursor:pointer;text-decoration:underline}
+.err{background:#fde8e8;color:#9b1c1c;padding:10px 12px;font-size:13px;margin-top:14px}
+h2{font-size:13px;margin:22px 0 8px;color:#3b4456}
+.tc{display:flex;flex-direction:column;gap:3px;width:100%;text-align:left;background:#f7f8fa;border:1px solid #d6dae1;padding:10px 12px;margin-bottom:6px;cursor:pointer;font-size:13px}
+.tc span{color:#5b6475}.note{font-size:12px;color:#5b6475;margin-top:16px;line-height:1.5}
+</style></head><body>
+<div class="top"><b>PayPal · Paiement</b><span class="badge">STUDIO — SIMULATION</span></div>
+<main><div class="card">
+<div class="merchant">Boxing Center Portet · ${esc(EVENT.shortName)}</div>
+<div class="amount">${amount} €</div><div class="ref">Référence ${esc(c.merchantReference)}</div>
+${error ? `<div class="err" role="alert">${esc(error)}</div>` : ''}
+<form method="post" id="payForm">
+<label for="email">Compte PayPal (adresse e-mail)</label><input id="email" name="email" type="email" autocomplete="off" placeholder="acheteur.accepte@studio.test" required>
+<button class="pay" name="action" value="pay" id="payBtn">Payer ${amount} €</button>
+<button class="cancel" name="action" value="cancel" id="cancelBtn" formnovalidate>Annuler et revenir au site</button>
+</form>
+<h2>Comptes acheteurs de test</h2>${accounts}
+<p class="note">Page PayPal simulée par le Studio du Business Club. Aucun compte PayPal n'est contacté et aucun débit n'a lieu.</p>
+</div></main>
+<script>document.querySelectorAll('.tc').forEach(function(b){b.addEventListener('click',function(){document.getElementById('email').value=b.dataset.email;});});</script>
+</body></html>`;
+}
+
 /* ---------- Routes ---------- */
 
 function mount(app, { store, sendReminders, isLive, publicView }) {
+  /* --- API PayPal simulée (OAuth client_credentials puis jeton Bearer, comme PayPal) --- */
+  app.post('/api/studio/paypal/v1/oauth2/token', (req, res) => {
+    const expected = `Basic ${Buffer.from(`${paypal.STUDIO_CLIENT_ID}:${paypal.studioSecret()}`).toString('base64')}`;
+    if (!sameString(req.headers.authorization || '', expected) || req.body?.grant_type !== 'client_credentials') {
+      return res.status(401).json({ error: 'invalid_client', error_description: 'Client Authentication failed' });
+    }
+    res.json({ access_token: paypalToken(), token_type: 'Bearer', expires_in: 32400 });
+  });
+
+  app.post('/api/studio/paypal/v2/checkout/orders', (req, res) => {
+    if (!paypalAuthorized(req)) return paypalError(res, 401, 'INVALID_TOKEN', 'Jeton invalide');
+    const unit = req.body?.purchase_units?.[0] || {};
+    const ctx = req.body?.payment_source?.paypal?.experience_context || {};
+    const amount = Math.round(Number(unit.amount?.value) * 100);
+    if (req.body?.intent !== 'CAPTURE' || unit.amount?.currency_code !== 'EUR' || !Number.isInteger(amount) || amount <= 0
+      || !unit.custom_id || !ctx.return_url || !ctx.cancel_url) {
+      return paypalError(res, 422, 'INVALID_PARAMETER_VALUE', 'Commande invalide');
+    }
+    const c = saveCheckout({
+      id: `S${crypto.randomBytes(8).toString('hex').toUpperCase()}`,
+      kind: 'paypal',
+      capture_id: `CAP${crypto.randomBytes(7).toString('hex').toUpperCase()}`,
+      created_at: new Date().toISOString(),
+      amount,
+      merchantReference: String(unit.custom_id),
+      returnUrl: String(ctx.return_url),
+      cancelUrl: String(ctx.cancel_url),
+      email: req.body?.payment_source?.paypal?.email_address || '',
+      outcome: null,
+      captured: false,
+    });
+    res.status(201).json(paypalView(c));
+  });
+
+  app.get('/api/studio/paypal/v2/checkout/orders/:id', (req, res) => {
+    if (!paypalAuthorized(req)) return paypalError(res, 401, 'INVALID_TOKEN', 'Jeton invalide');
+    const c = loadCheckout(req.params.id);
+    if (!c || c.kind !== 'paypal') return res.status(404).json({ name: 'RESOURCE_NOT_FOUND', details: [{ issue: 'INVALID_RESOURCE_ID' }] });
+    res.json(paypalView(c));
+  });
+
+  app.post('/api/studio/paypal/v2/checkout/orders/:id/capture', (req, res) => {
+    if (!paypalAuthorized(req)) return paypalError(res, 401, 'INVALID_TOKEN', 'Jeton invalide');
+    const c = loadCheckout(req.params.id);
+    if (!c || c.kind !== 'paypal') return res.status(404).json({ name: 'RESOURCE_NOT_FOUND', details: [{ issue: 'INVALID_RESOURCE_ID' }] });
+    if (!c.outcome || c.outcome === 'cancelled') return paypalError(res, 422, 'ORDER_NOT_APPROVED', 'Commande non approuvée par l’acheteur');
+    if (c.captured) return paypalError(res, 422, 'ORDER_ALREADY_CAPTURED', 'Commande déjà capturée');
+    if (c.outcome === 'rejected') return paypalError(res, 422, 'INSTRUMENT_DECLINED', 'Moyen de paiement refusé');
+    c.captured = true;
+    c.captured_at = new Date().toISOString();
+    saveCheckout(c);
+    res.status(201).json(paypalView(c));
+  });
+
+  /* --- Page PayPal simulée --- */
+  function paypalBack(c) {
+    const url = c.outcome === 'cancelled' ? c.cancelUrl : c.returnUrl;
+    const params = { token: c.id };
+    if (c.outcome !== 'cancelled') params.PayerID = 'STUDIOPAYER01';
+    return withParams(url, params);
+  }
+
+  app.get('/studio/paypal/:id', (req, res) => {
+    const c = loadCheckout(req.params.id);
+    if (!c || c.kind !== 'paypal') return res.status(404).type('text').send('Commande PayPal introuvable');
+    if (c.outcome) return res.redirect(303, paypalBack(c));
+    res.type('html').send(paypalPage(c));
+  });
+
+  app.post('/studio/paypal/:id', (req, res) => {
+    const c = loadCheckout(req.params.id);
+    if (!c || c.kind !== 'paypal') return res.status(404).type('text').send('Commande PayPal introuvable');
+    if (!c.outcome) {
+      if (req.body?.action === 'cancel') {
+        c.outcome = 'cancelled';
+      } else {
+        const email = String(req.body?.email || '').trim().toLowerCase();
+        const scenario = PAYPAL_ACCOUNTS[email];
+        if (!scenario) {
+          return res.status(400).type('html').send(paypalPage(c, 'Compte inconnu : utilisez un compte acheteur de test ci-dessous.'));
+        }
+        c.outcome = scenario.outcome;
+        c.card = email;
+      }
+      c.completed_at = new Date().toISOString();
+      saveCheckout(c);
+    }
+    res.redirect(303, paypalBack(c));
+  });
+
   /* --- API CAWL simulée (authentifiée par signature HMAC, comme CAWL) --- */
   app.post('/api/studio/cawl/v2/:merchant/hostedcheckouts', (req, res) => {
     const resourcePath = `/v2/${req.params.merchant}/hostedcheckouts`;
@@ -287,7 +490,8 @@ function mount(app, { store, sendReminders, isLive, publicView }) {
       available: studioAvailable(),
       studio: isStudio(req),
       password_required: Boolean(process.env.STUDIO_PASSWORD),
-      target: cawl.testConfigured() ? 'cawl-preprod' : 'simulator',
+      provider: payments.provider(),
+      target: studioTarget(),
     });
   });
 
@@ -324,9 +528,11 @@ function mount(app, { store, sendReminders, isLive, publicView }) {
         return { file: f, to: m ? m[1] : '', subject: m ? m[2] : f };
       })
       : [];
+    const provider = payments.provider();
     res.json({
       ok: true,
-      target: cawl.testConfigured() ? 'cawl-preprod' : 'simulator',
+      provider,
+      target: studioTarget(),
       registrations: regs.map((r) => ({
         ...publicView(r),
         pay_mode: r.pay_mode,
@@ -334,13 +540,15 @@ function mount(app, { store, sendReminders, isLive, publicView }) {
         confirmation_sent_at: r.confirmation_sent_at || null,
         reminder_sent_at: r.reminder_sent_at || null,
         review_reason: r.review_reason || null,
-        checkout: r.cawl_hosted_checkout_id || null,
+        checkout: r.cawl_hosted_checkout_id || r.paypal_order_id || null,
       })).reverse(),
       checkouts: listCheckouts().map((c) => ({
-        id: c.id, ref: c.merchantReference, amount: c.amount, outcome: c.outcome, card: c.card || null, created_at: c.created_at,
+        id: c.id, kind: c.kind || 'cawl', ref: c.merchantReference, amount: c.amount, card: c.card || null, created_at: c.created_at,
+        // Un paiement PayPal en attente n'existe qu'après la capture (faite au retour sur le site).
+        outcome: c.kind === 'paypal' && c.outcome === 'pending' && !c.captured ? 'approved' : c.outcome,
       })),
       outbox,
-      cards: TEST_CARDS,
+      cards: provider === 'paypal' ? PAYPAL_ACCOUNTS : TEST_CARDS,
     });
   });
 
@@ -348,6 +556,26 @@ function mount(app, { store, sendReminders, isLive, publicView }) {
   app.post('/api/studio/checkouts/:id/webhook', guard, async (req, res) => {
     const c = loadCheckout(req.params.id);
     if (!c) return res.status(404).json({ ok: false });
+    if (c.kind === 'paypal') {
+      if (c.outcome === 'pending' && c.captured) {
+        c.outcome = 'captured';
+        saveCheckout(c);
+      }
+      const r = await fetch(`${publicUrl()}/api/webhooks/paypal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_type: 'PAYMENT.CAPTURE.COMPLETED',
+          resource: {
+            id: c.capture_id,
+            status: 'COMPLETED',
+            custom_id: c.merchantReference,
+            supplementary_data: { related_ids: { order_id: c.id } },
+          },
+        }),
+      });
+      return res.json({ ok: r.ok, webhook: await r.json().catch(() => null) });
+    }
     if (c.outcome === 'pending') {
       c.outcome = 'captured';
       saveCheckout(c);
@@ -391,4 +619,4 @@ function mount(app, { store, sendReminders, isLive, publicView }) {
   });
 }
 
-module.exports = { mount, isStudio, TEST_CARDS, cawlView };
+module.exports = { mount, isStudio, TEST_CARDS, PAYPAL_ACCOUNTS, cawlView, paypalView };

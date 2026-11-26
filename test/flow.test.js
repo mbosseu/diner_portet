@@ -17,10 +17,12 @@ Object.assign(process.env, {
   DISABLE_RATE_LIMIT: '1',
   MAX_PAID_SEATS: '50',
   NODE_ENV: 'test',
+  PAYMENT_PROVIDER: 'cawl',
 });
 for (const k of ['CAWL_MERCHANT_ID', 'CAWL_API_KEY_ID', 'CAWL_API_SECRET', 'CAWL_TEST_MERCHANT_ID',
   'CAWL_TEST_API_KEY_ID', 'CAWL_TEST_API_SECRET', 'BREVO_API_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
-  'CRON_SECRET', 'ADMIN_TOKEN', 'STUDIO_PASSWORD', 'VERCEL', 'VERCEL_ENV', 'ORGANIZER_EMAIL']) delete process.env[k];
+  'CRON_SECRET', 'ADMIN_TOKEN', 'STUDIO_PASSWORD', 'VERCEL', 'VERCEL_ENV', 'ORGANIZER_EMAIL',
+  'PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'PAYPAL_TEST_CLIENT_ID', 'PAYPAL_TEST_CLIENT_SECRET', 'PAYPAL_MODE']) delete process.env[k];
 
 const { createApp } = require('../server/app');
 const cawl = require('../server/lib/cawl');

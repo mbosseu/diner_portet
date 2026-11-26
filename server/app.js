@@ -6,6 +6,8 @@ const QRCode = require('qrcode');
 
 const { EVENT, publicUrl, maxPaidSeats, isProduction } = require('./lib/config');
 const cawl = require('./lib/cawl');
+const paypal = require('./lib/paypal');
+const payments = require('./lib/payments');
 const { sendEmail, isBrevoEnabled } = require('./lib/brevo');
 const store = require('./lib/store');
 const { confirmationEmail, reminderEmail, organizerEmail, invitationLinks } = require('./lib/emails');
@@ -133,14 +135,15 @@ async function qrSrcForEmail(reg) {
 
 /** En production, les inscriptions doivent être enregistrées dans Supabase (le disque de Vercel est temporaire). */
 function storageReady() {
-  return !isProduction() || Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+  return !isProduction() || store.supabaseConfigured();
 }
 
 /** Mode de paiement d'une nouvelle inscription. */
 function paymentModeFor(req) {
-  if (studio.isStudio(req)) return cawl.testConfigured() ? 'test' : 'studio';
+  const lib = payments.lib();
+  if (studio.isStudio(req)) return lib.testConfigured() ? 'test' : 'studio';
   if (!storageReady()) return null;
-  if (cawl.liveConfigured()) return 'live';
+  if (lib.liveConfigured()) return 'live';
   if (!isProduction()) return 'studio'; // poste local sans clés : simulateur
   return null;
 }
@@ -221,6 +224,66 @@ async function confirmWithCawl(reg) {
   return { paid: true, reg: done };
 }
 
+/** Refus côté PayPal au moment de la capture (moyen de paiement refusé). */
+const PAYPAL_REFUSALS = new Set([
+  'INSTRUMENT_DECLINED', 'TRANSACTION_REFUSED', 'PAYER_CANNOT_PAY', 'PAYEE_BLOCKED_TRANSACTION',
+  'COMPLIANCE_VIOLATION', 'MAX_NUMBER_OF_PAYMENT_ATTEMPTS_EXCEEDED',
+]);
+
+/**
+ * Vérifie auprès de PayPal : capture la commande approuvée par l'acheteur, puis contrôle
+ * statut, montant et référence avant de confirmer la place.
+ */
+async function confirmWithPaypal(reg, { cancelled = false } = {}) {
+  if (reg.status === 'paid') return { paid: true, reg };
+  if (!reg.paypal_order_id) return { paid: false, error: 'no_checkout' };
+  const cfg = paypal.config(reg.pay_mode || 'live', publicUrl());
+  let order = await paypal.getOrder(cfg, reg.paypal_order_id);
+  let state = paypal.orderState(order);
+  if (state === 'approved') {
+    try {
+      order = await paypal.captureOrder(cfg, reg.paypal_order_id);
+    } catch (err) {
+      if (err.issue === 'ORDER_ALREADY_CAPTURED') order = await paypal.getOrder(cfg, reg.paypal_order_id);
+      else if (PAYPAL_REFUSALS.has(err.issue)) order = { status: 'APPROVED', purchase_units: [{ payments: { captures: [{ status: 'DECLINED' }] } }] };
+      else throw err;
+    }
+    state = paypal.orderState(order);
+  }
+  if (state === 'refused') {
+    reg.status = 'failed';
+    await store.save(reg);
+    return { paid: false, refused: true, reg };
+  }
+  if (state === 'cancelled' || (state === 'open' && cancelled)) {
+    reg.status = 'cancelled';
+    await store.save(reg);
+    return { paid: false, cancelled: true, reg };
+  }
+  if (state !== 'paid') return { paid: false, error: 'payment_not_completed', reg };
+  const ref = paypal.reference(order);
+  const cents = paypal.paidCents(order);
+  if (ref !== reg.id || cents !== reg.amount_cents) {
+    reg.status = 'review';
+    reg.review_reason = ref !== reg.id ? 'reference_mismatch' : 'amount_mismatch';
+    reg.review_detail = { reference: ref, amount_cents: cents };
+    await store.save(reg);
+    return { paid: false, error: reg.review_reason, reg };
+  }
+  const done = await finalizePaid(reg, {
+    method: 'paypal',
+    mode: cfg.mode,
+    order_id: reg.paypal_order_id,
+    capture_id: paypal.captureId(order) || null,
+    amount_cents: cents,
+  });
+  return { paid: true, reg: done };
+}
+
+function confirmPayment(reg, opts) {
+  return reg.provider === 'paypal' ? confirmWithPaypal(reg, opts) : confirmWithCawl(reg);
+}
+
 /** Rappel de la veille. `scope` : 'live' (vrais inscrits) ou 'test' (studio). */
 async function sendReminders(scope) {
   const sent = [];
@@ -260,9 +323,11 @@ function createApp() {
     res.json({
       ok: true,
       payment_mode: paymentModeFor(req),
+      provider: payments.provider(),
+      paypal: { live: paypal.liveConfigured(), test: paypal.testConfigured(), host: paypal.config('live').base },
       cawl: { live: cawl.liveConfigured(), test: cawl.testConfigured() },
       brevo: isBrevoEnabled(),
-      storage: process.env.SUPABASE_URL ? 'supabase' : 'local-files',
+      storage: store.supabaseConfigured() ? 'supabase' : 'local-files',
       storage_ready: storageReady(),
       studio: studio.isStudio(req),
       seats: { max: maxPaidSeats() },
@@ -301,20 +366,33 @@ function createApp() {
         created_at: new Date().toISOString(),
         amount_cents: EVENT.priceCents,
         pay_mode: mode,
+        provider: payments.provider(),
         ...fields,
       };
       await store.save(reg);
 
-      const cfg = cawl.config(mode, publicUrl());
-      const checkout = await cawl.createHostedCheckout(cfg, {
-        registration: reg,
-        amountCents: reg.amount_cents,
-        description: 'Diner Business Club 04/12',
-        returnUrl: cawl.buildReturnUrl(publicUrl(), reg.id, reg.token),
-      });
-      reg.cawl_hosted_checkout_id = checkout.hostedCheckoutId;
+      let redirectUrl;
+      if (reg.provider === 'paypal') {
+        const order = await paypal.createOrder(paypal.config(mode, publicUrl()), {
+          registration: reg,
+          amountCents: reg.amount_cents,
+          description: 'Dîner Business Club · 4 décembre 2026 · Boxing Center Portet',
+          ...paypal.returnUrls(publicUrl(), reg.id, reg.token),
+        });
+        reg.paypal_order_id = order.orderId;
+        redirectUrl = order.redirectUrl;
+      } else {
+        const checkout = await cawl.createHostedCheckout(cawl.config(mode, publicUrl()), {
+          registration: reg,
+          amountCents: reg.amount_cents,
+          description: 'Diner Business Club 04/12',
+          returnUrl: cawl.buildReturnUrl(publicUrl(), reg.id, reg.token),
+        });
+        reg.cawl_hosted_checkout_id = checkout.hostedCheckoutId;
+        redirectUrl = checkout.redirectUrl;
+      }
       await store.save(reg);
-      res.json({ ok: true, id: reg.id, token: reg.token, mode, redirectUrl: checkout.redirectUrl });
+      res.json({ ok: true, id: reg.id, token: reg.token, mode, provider: reg.provider, redirectUrl });
     } catch (err) {
       console.error('register', err.message);
       res.status(502).json({ ok: false, error: 'payment_unavailable' });
@@ -326,7 +404,7 @@ function createApp() {
     try {
       const reg = await store.load(req.params.id);
       if (!reg || !sameToken(reg.token, req.body?.t)) return res.status(404).json({ ok: false, error: 'not_found' });
-      const result = await confirmWithCawl(reg);
+      const result = await confirmPayment(reg, { cancelled: req.body?.cancelled === true });
       res.json({
         ok: true,
         paid: result.paid,
@@ -389,11 +467,33 @@ function createApp() {
       if (!reg && hostedId) {
         reg = (await store.listAll()).find((r) => r.cawl_hosted_checkout_id === hostedId) || null;
       }
-      if (!reg) return res.json({ ok: true, ignored: true });
+      if (!reg || reg.provider === 'paypal') return res.json({ ok: true, ignored: true });
       const result = await confirmWithCawl(reg);
       res.json({ ok: true, id: reg.id, paid: result.paid });
     } catch (err) {
       console.error('webhook cawl', err.message);
+      res.status(500).json({ ok: false });
+    }
+  });
+
+  /* Webhook PayPal : l'événement sert seulement de signal, tout est revérifié auprès de PayPal */
+  app.get('/api/webhooks/paypal', (_req, res) => {
+    res.json({ ok: true, endpoint: 'paypal', method: 'POST', configured: paypal.liveConfigured() });
+  });
+  app.post('/api/webhooks/paypal', async (req, res) => {
+    try {
+      const body = req.body || {};
+      const r = body.resource || {};
+      const ref = String(r.custom_id || r.invoice_id || r.purchase_units?.[0]?.custom_id || '').trim();
+      const orderId = String(r.supplementary_data?.related_ids?.order_id
+        || (String(body.event_type || '').startsWith('CHECKOUT.ORDER') ? r.id : '') || '').trim();
+      let reg = ref.startsWith('DP-') ? await store.load(ref) : null;
+      if (!reg && orderId) reg = (await store.listAll()).find((x) => x.paypal_order_id === orderId) || null;
+      if (!reg || reg.provider !== 'paypal') return res.json({ ok: true, ignored: true });
+      const result = await confirmWithPaypal(reg);
+      res.json({ ok: true, id: reg.id, paid: result.paid });
+    } catch (err) {
+      console.error('webhook paypal', err.message);
       res.status(500).json({ ok: false });
     }
   });

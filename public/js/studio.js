@@ -4,7 +4,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var LABELS = {
     paid: "Payée", pending: "En attente", failed: "Refusée", cancelled: "Annulée", review: "À vérifier",
-    captured: "Acceptée", rejected: "Refusée", tampered: "Montant falsifié", null: "Non payée"
+    captured: "Acceptée", rejected: "Refusée", tampered: "Montant falsifié", approved: "Approuvée", null: "Non payée"
   };
 
   function esc(s) {
@@ -29,10 +29,20 @@
   function render(data) {
     $("lock").hidden = true;
     $("dash").hidden = false;
-    $("target").textContent = data.target === "cawl-preprod" ? "préproduction CAWL (clés de test)" : "simulateur CAWL du Studio";
+    $("target").textContent = {
+      "cawl-preprod": "préproduction CAWL (clés de test)",
+      simulator: "simulateur CAWL du Studio",
+      "paypal-sandbox": "bac à sable PayPal (clés de test)",
+      "paypal-simulator": "simulateur PayPal du Studio"
+    }[data.target] || data.target;
+    var isPaypal = data.provider === "paypal";
+    $("cardsTitle").textContent = isPaypal ? "Comptes PayPal de test" : "Cartes de test";
+    $("cardsNote").textContent = isPaypal
+      ? "Sur la page PayPal simulée, cliquez sur un compte pour le saisir, puis « Payer »."
+      : "Expiration : n'importe quelle date future (ex. 12/29) · Cryptogramme : 3 chiffres (ex. 123).";
 
     $("cards").innerHTML = Object.keys(data.cards).map(function (num) {
-      return "<li><code>" + num.replace(/(\d{4})(?=\d)/g, "$1 ") + "</code><span>" + esc(data.cards[num].label) + "</span></li>";
+      return "<li><code>" + esc(isPaypal ? num : num.replace(/(\d{4})(?=\d)/g, "$1 ")) + "</code><span>" + esc(data.cards[num].label) + "</span></li>";
     }).join("");
 
     $("regCount").textContent = "(" + data.registrations.length + ")";

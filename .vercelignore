@@ -2,3 +2,4 @@ sources/
 data/
 test/
 .claude/
+.env.vercel

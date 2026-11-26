@@ -6,6 +6,7 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/studio/pay/(.*)", "destination": "/api" },
+    { "source": "/studio/paypal/(.*)", "destination": "/api" },
     { "source": "/studio", "destination": "/studio.html" }
   ],
   "functions": {

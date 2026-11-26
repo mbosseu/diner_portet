@@ -14,10 +14,20 @@ const TABLE = 'diner_registrations';
 const PENDING_HOLD_MS = 30 * 60 * 1000; // une place est réservée 30 min pendant le paiement
 
 let supabase = null;
+function supabaseEnv() {
+  const clean = (v) => String(v || '').trim().replace(/^["']|["']$/g, '');
+  return { url: clean(process.env.SUPABASE_URL), key: clean(process.env.SUPABASE_SERVICE_ROLE_KEY) };
+}
+
+/** Configuré seulement avec une vraie URL https et une clé (pas un texte « COLLER_ICI » oublié). */
+function supabaseConfigured() {
+  const { url, key } = supabaseEnv();
+  return /^https:\/\/\S+$/.test(url) && key.length > 30;
+}
+
 function remote() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
+  if (!supabaseConfigured()) return null;
+  const { url, key } = supabaseEnv();
   if (!supabase) {
     const { createClient } = require('@supabase/supabase-js');
     supabase = createClient(url, key, { auth: { persistSession: false } });
@@ -112,4 +122,5 @@ async function remove(id) {
   if (fs.existsSync(file)) fs.unlinkSync(file);
 }
 
-module.exports = { save, load, listAll, seatsTaken, findPaidByEmail, remove, safeId, PENDING_HOLD_MS };
+module.exports = {
+  supabaseConfigured, save, load, listAll, seatsTaken, findPaidByEmail, remove, safeId, PENDING_HOLD_MS };
