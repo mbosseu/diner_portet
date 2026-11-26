@@ -8,7 +8,7 @@ const { EVENT, publicUrl, maxPaidSeats, isProduction } = require('./lib/config')
 const cawl = require('./lib/cawl');
 const paypal = require('./lib/paypal');
 const payments = require('./lib/payments');
-const { sendEmail, isBrevoEnabled, isSmtpEnabled } = require('./lib/brevo');
+const { sendEmail, isBrevoEnabled, isSmtpEnabled, smtpInfo } = require('./lib/brevo');
 const store = require('./lib/store');
 const { confirmationEmail, reminderEmail, organizerEmail, invitationLinks } = require('./lib/emails');
 const studio = require('./studio');
@@ -330,12 +330,12 @@ async function sendRealTestEmails(reg, to) {
   for (const [kind, builder] of [['invitation', confirmationEmail], ['rappel', reminderEmail]]) {
     try {
       const r = await sendQrEmail(reg, (qrSrc) => builder(reg, { qrSrc }), { to, subjectPrefix: `[TEST ${stamp}] `, outboxOnly: false });
-      results.push({ kind, sent: r.sent, via: r.via, messageId: r.messageId || null });
+      results.push({ kind, sent: r.sent, via: r.via, messageId: r.messageId || null, smtp_error: r.smtpError || null });
     } catch (err) {
       results.push({ kind, sent: false, error: err.message });
     }
   }
-  return { ok: results.every((r) => r.sent), results };
+  return { ok: results.every((r) => r.sent), results, smtp: smtpInfo() };
 }
 
 /**

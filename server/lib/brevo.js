@@ -51,6 +51,17 @@ function isSmtpEnabled() {
   return Boolean(smtpConfig());
 }
 
+/** Diagnostic sans secret : d'où viennent les réglages SMTP. */
+function smtpInfo() {
+  const cfg = smtpConfig();
+  if (!cfg) return null;
+  return {
+    host: cfg.host, port: cfg.port,
+    source: process.env.SMTP_USER ? 'SMTP_USER/SMTP_PASS' : 'BREVO_SMTP_LOGIN/BREVO_SMTP_KEY',
+    user_domain: String(cfg.user).split('@')[1] || '(sans @)',
+  };
+}
+
 let transporter = null;
 function smtpTransport() {
   if (transporter) return transporter;
@@ -88,12 +99,14 @@ function smtpMessage({ to, subject, html, text, attachments = [], inline = [], c
 async function sendEmail({ to, subject, html, text, attachments = [], cc = [], outboxOnly = false, inline = [], htmlFallback = null }) {
   if (!to) throw new Error('destinataire manquant');
 
+  let smtpError = null;
   if (inline.length && !outboxOnly && isBrevoEnabled() && isSmtpEnabled()) {
     try {
       const info = await smtpTransport().sendMail(smtpMessage({ to, subject, html, text, attachments, inline, cc }));
       return { sent: true, via: 'brevo-smtp', messageId: info.messageId, raw: info.message };
     } catch (err) {
       console.error('smtp', err.message);
+      smtpError = `${err.code || ''} ${err.responseCode || ''} ${String(err.message || '').slice(0, 160)}`.trim();
       if (!htmlFallback) throw err;
     }
   }
@@ -131,7 +144,7 @@ async function sendEmail({ to, subject, html, text, attachments = [], cc = [], o
   let data = {};
   try { data = raw ? JSON.parse(raw) : {}; } catch { data = { message: raw.slice(0, 200) }; }
   if (!res.ok) throw new Error(data.message || `Brevo API HTTP ${res.status}`);
-  return { sent: true, via: 'brevo-api', messageId: data.messageId };
+  return { sent: true, via: 'brevo-api', messageId: data.messageId, smtpError };
 }
 
-module.exports = { sendEmail, isBrevoEnabled, isSmtpEnabled, outboxDir };
+module.exports = { sendEmail, isBrevoEnabled, isSmtpEnabled, smtpInfo, outboxDir };
