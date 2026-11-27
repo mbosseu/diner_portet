@@ -1314,19 +1314,38 @@ em { font-style: italic; }
   .nav-meta { display: none; }
   .nav-mark-main { font-size: 21px; }
 
-  .hero { min-height: 600px; }
-  .hero-video video { object-position: 58% center; }
-  .hero-shade {
-    background:
-      linear-gradient(180deg,
-        rgba(11,11,10,0.78) 0%,
-        rgba(11,11,10,0.3) 14%,
-        rgba(11,11,10,0.55) 26%,
-        rgba(11,11,10,0.82) 44%,
-        rgba(11,11,10,0.95) 68%,
-        #0b0b0a 100%);
+  /* Mobile : la vidéo occupe le haut de l'écran, bien visible ; le texte vient en dessous,
+     posé sur un fondu au noir, au lieu d'un voile sombre sur toute la hauteur */
+  .hero { height: auto; min-height: 0; display: block; }
+  .hero-video {
+    position: relative;
+    inset: auto;
+    height: 68vh;
+    height: 68svh;
+    min-height: 400px;
+    max-height: 640px;
+    margin: 0 calc(-1 * var(--pad));
   }
-  .hero-content { margin-bottom: 32px; }
+  .hero-video video {
+    object-position: 58% center;
+    filter: brightness(0.98) saturate(1);
+    animation: none;
+  }
+  .hero-video::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg,
+      rgba(11,11,10,0.62) 0%,
+      rgba(11,11,10,0.12) 16%,
+      rgba(11,11,10,0) 30%,
+      rgba(11,11,10,0) 52%,
+      rgba(11,11,10,0.55) 76%,
+      #0b0b0a 100%);
+  }
+  .hero-dip { bottom: auto; height: 68svh; min-height: 400px; max-height: 640px; }
+  .hero-shade { display: none; }
+  .hero-content { position: relative; margin-top: -96px; margin-bottom: 32px; }
   .hero-kicker { margin-bottom: 18px; font-size: 11px; }
   .hero-kicker .rule { width: 28px; }
   .hero-title { font-size: clamp(50px, 15vw, 76px); }
@@ -1350,7 +1369,8 @@ em { font-style: italic; }
   .rounds-timer { display: none; }
   .rounds-track { flex-direction: column; width: 100%; padding-top: 56px; gap: 80px; }
   .round { width: 100%; }
-  .round-media { clip-path: none; }
+  .round-media { clip-path: none; aspect-ratio: 4 / 5; }
+  .round-media img, .round-media video { transform: scale(1.12); }
 
   .reel-frame { height: 80vh; clip-path: inset(6% 6% 6% 6%); }
 

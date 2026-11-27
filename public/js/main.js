@@ -32,38 +32,63 @@
     });
   }
 
-  /* ---------- Vidéos des rounds : chargées et jouées seulement à l'écran ---------- */
+  /* ---------- Lecture des vidéos : relance tant qu'elles ne jouent pas ----------
+     Certains téléphones (mode économie d'énergie, économiseur de données) refusent
+     la lecture automatique : on réessaie dès que la vidéo est prête, quand la page
+     redevient visible, et au premier toucher de l'écran (geste qui débloque la lecture). */
+  var tryPlay = function (v) {
+    if (reduce || !v || !v.paused || document.visibilityState !== "visible") return;
+    try { var p = v.play(); if (p && p.catch) p.catch(function () {}); } catch (err) {}
+  };
+
+  if (heroVideo) {
+    heroVideo.muted = true; // certains navigateurs ignorent l'attribut seul
+    ["loadedmetadata", "canplay"].forEach(function (ev) {
+      heroVideo.addEventListener(ev, function () { tryPlay(heroVideo); });
+    });
+    tryPlay(heroVideo);
+  }
+
+  /* ---------- Vidéos des rounds : chargées un peu avant d'arriver à l'écran ---------- */
   var roundVideos = document.querySelectorAll(".round-video");
+  var small = window.matchMedia("(max-width: 760px)").matches;
+  var loadVideo = function (v) {
+    if (v.dataset.loaded) return;
+    v.muted = true;
+    v.preload = "auto";
+    v.src = small ? v.dataset.srcM : v.dataset.srcD;
+    v.dataset.loaded = "1";
+    v.addEventListener("canplay", function () { if (v.dataset.inview) tryPlay(v); });
+  };
   if (roundVideos.length) {
-    var small = window.matchMedia("(max-width: 760px)").matches;
-    var loadVideo = function (v) {
-      if (v.dataset.loaded) return;
-      v.src = small ? v.dataset.srcM : v.dataset.srcD;
-      v.dataset.loaded = "1";
-    };
     if ("IntersectionObserver" in window) {
-      var playIfVisible = function (v) {
-        if (reduce || document.visibilityState !== "visible" || !v.dataset.inview) return;
-        var p = v.play(); if (p && p.catch) p.catch(function () {});
-      };
-      document.addEventListener("visibilitychange", function () {
-        roundVideos.forEach(playIfVisible);
-      });
+      // Préchargement : bien en avance (une hauteur d'écran) pour que la vidéo soit prête à l'arrivée
+      var pre = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) { if (e.isIntersecting) { loadVideo(e.target); pre.unobserve(e.target); } });
+      }, { rootMargin: "120% 0px 120% 0px" });
+      // Lecture : seulement quand la vidéo est réellement visible
       var vio = new IntersectionObserver(function (entries) {
         entries.forEach(function (e) {
           var v = e.target;
-          if (e.isIntersecting) v.dataset.inview = "1"; else delete v.dataset.inview;
-          if (e.isIntersecting) {
-            loadVideo(v);
-            if (!reduce) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
-          } else if (!v.paused) v.pause();
+          if (e.isIntersecting) { v.dataset.inview = "1"; loadVideo(v); tryPlay(v); }
+          else { delete v.dataset.inview; if (!v.paused) v.pause(); }
         });
-      }, { rootMargin: "200px 0px 200px 0px" });
-      roundVideos.forEach(function (v) { vio.observe(v); });
+      }, { rootMargin: "60px 0px 60px 0px" });
+      roundVideos.forEach(function (v) { pre.observe(v); vio.observe(v); });
     } else {
-      roundVideos.forEach(function (v) { loadVideo(v); if (!reduce) v.play(); });
+      roundVideos.forEach(function (v) { loadVideo(v); v.dataset.inview = "1"; tryPlay(v); });
     }
   }
+
+  var playVisible = function () {
+    if (heroVideo && heroVideo.getBoundingClientRect().bottom > 0) tryPlay(heroVideo);
+    roundVideos.forEach(function (v) { if (v.dataset.inview) tryPlay(v); });
+  };
+  document.addEventListener("visibilitychange", playVisible);
+  window.addEventListener("pageshow", playVisible);
+  ["touchend", "pointerup", "click", "keydown"].forEach(function (ev) {
+    document.addEventListener(ev, playVisible, { passive: true });
+  });
 
   /* ---------- Compte à rebours ---------- */
   var cd = document.getElementById("countdown");
@@ -202,6 +227,7 @@
     .to(".intro-title", { autoAlpha: 1, duration: 1.2 }, 0.7)
     .to(".intro", { autoAlpha: 0, duration: 1.1, ease: "power2.inOut" }, 1.9)
     .to(".hero-video", { autoAlpha: 1, scale: 1, duration: 2.6, ease: "power2.out" }, 2.0)
+    .add(function () { tryPlay(heroVideo); }, 2.0)
     .add(function () { endIntro(); if (lenis) lenis.start(); }, 2.6)
     .to(".hero-kicker", { autoAlpha: 1, y: 0, duration: 1.2 }, 2.5)
     .to(".hero-kicker .rule", { scaleX: 1, duration: 1.2, ease: "expo.inOut" }, 2.55)
@@ -210,7 +236,7 @@
     .to(".hero-info, .nav", { autoAlpha: 1, y: 0, duration: 1.3, stagger: 0.08 }, 3.15);
 
   /* ---------- Hero au défilement ---------- */
-  gsap.to(".hero-video", {
+  if (!small) gsap.to(".hero-video", {
     yPercent: 14, ease: "none",
     scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true }
   });
@@ -313,7 +339,7 @@
 
   mm.add("(max-width: 760px)", function () {
     gsap.utils.toArray(".round").forEach(function (round) {
-      from2(round.querySelector(".round-video, img"), { scale: 1.3, ease: "none",
+      from2(round.querySelector(".round-video, img"), { scale: 1.12, ease: "none",
         scrollTrigger: { trigger: round, start: "top bottom", end: "bottom top", scrub: true } });
       from2(round.querySelector(".round-body").children, {
         autoAlpha: 0, y: 40, stagger: 0.08, duration: 1.2, ease: "expo.out",
