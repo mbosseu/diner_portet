@@ -148,9 +148,14 @@ async function sendQrEmail(reg, build, { to = reg.email, subjectPrefix = '', out
     const mail = build(`data:image/png;base64,${qr}`);
     return sendEmail({ to, subject: subjectPrefix + mail.subject, html: mail.html, text: mail.text, attachments, outboxOnly });
   }
+  const hostedMail = build(invitationLinks(reg).qr);
+  // Comme la boutique : envoi par l'API Brevo (QR affiché depuis le site + joint en pièce jointe).
+  // Le SMTP (QR intégré au message) ne sert que s'il est explicitement activé : DINER_EMAIL_VIA=smtp.
+  if (process.env.DINER_EMAIL_VIA !== 'smtp') {
+    return sendEmail({ to, subject: subjectPrefix + hostedMail.subject, html: hostedMail.html, text: hostedMail.text, attachments });
+  }
   const cid = `qr-${reg.id.toLowerCase()}@businessclub`;
   const inlineMail = build(`cid:${cid}`);
-  const hostedMail = build(invitationLinks(reg).qr);
   return sendEmail({
     to,
     subject: subjectPrefix + inlineMail.subject,
