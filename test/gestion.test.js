@@ -324,3 +324,24 @@ test('invitations partenaires : attribution, envoi avec QR signé, entrée uniqu
   assert.equal((await call('POST', '/api/gestion/partners/clear', { n: 6 })).body.ok, true);
   assert.equal(await store.load('DP-PART06'), null);
 });
+
+test('partenaires : rappel de la veille, invitation en ligne, audiences des messages', async () => {
+  await call('POST', '/api/gestion/partners', { n: 9, first_name: 'Nora', last_name: 'Vidal', email: 'nora@partenaire.fr' });
+  await call('POST', '/api/gestion/checkin', { code: 'BC-PART-10' }); // partenaire sans e-mail : pas de rappel
+  const reg = await store.load('DP-PART09');
+  const online = await fetch(`${BASE}/api/registrations/DP-PART09?t=${reg.token}`).then((r) => r.json());
+  assert.equal(online.registration.status, 'partner', 'l’invitation en ligne du partenaire est lisible');
+
+  const r = await sendReminders('live');
+  assert.ok(r.sent.includes('DP-PART09'), 'le partenaire invité par e-mail reçoit le rappel');
+  assert.ok(!r.sent.includes('DP-PART10'), 'pas d’e-mail, pas de rappel');
+  assert.equal((await sendReminders('live')).sent.length, 0, 'une seule fois');
+
+  const ov = (await call('GET', '/api/gestion/overview')).body;
+  assert.ok(ov.audiences.partners.count >= 1);
+  assert.ok(ov.audiences.everyone.count >= ov.audiences.paid.count + ov.audiences.partners.count - 1);
+  assert.ok(ov.stats.reminders_target >= ov.stats.paid + 1);
+  const send = await call('POST', '/api/gestion/messages/send', { subject: 'Infos', body: 'Bonjour {prenom}', audience: 'partners', campaign: 'm-part-0001' });
+  assert.ok(send.body.sent >= 1);
+  assert.ok((await store.load('DP-PART09')).messages_sent.some((m) => m.id === 'm-part-0001'));
+});

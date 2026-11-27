@@ -106,10 +106,13 @@ function adminView(reg) {
   };
 }
 
+const isGuest = (r) => r.status === 'paid' || r.status === 'partner';
 const AUDIENCES = {
-  paid: { label: 'Tous les inscrits payés', test: (r) => r.status === 'paid' },
-  absent: { label: 'Inscrits pas encore arrivés', test: (r) => r.status === 'paid' && !r.checked_in_at },
-  present: { label: 'Participants présents', test: (r) => r.status === 'paid' && Boolean(r.checked_in_at) },
+  everyone: { label: 'Tous les invités (inscrits et partenaires)', test: isGuest },
+  paid: { label: 'Inscrits payés', test: (r) => r.status === 'paid' },
+  partners: { label: 'Partenaires', test: (r) => r.status === 'partner' },
+  absent: { label: 'Invités pas encore arrivés', test: (r) => isGuest(r) && !r.checked_in_at },
+  present: { label: 'Participants présents', test: (r) => isGuest(r) && Boolean(r.checked_in_at) },
   pending: { label: 'Paiements non finalisés', test: (r) => r.status === 'pending' },
 };
 
@@ -186,7 +189,8 @@ function mount(app, {
         partners_present: partners.filter((r) => r.checked_in_at).length,
         partners_total: PARTNER_INVITES,
         revenue_cents: paid.filter(isLive).reduce((s, r) => s + (r.amount_cents || 0), 0),
-        reminders_sent: paid.filter((r) => r.reminder_sent_at).length,
+        reminders_sent: [...paid, ...partners].filter((r) => r.reminder_sent_at && (r.status === 'paid' || r.email)).length,
+        reminders_target: paid.length + partners.filter((r) => r.email && r.token).length,
         invitations_sent: paid.filter((r) => r.confirmation_sent_at && !r.confirmation_error).length,
         invitations_failed: paid.filter((r) => r.confirmation_error).length,
         review: all.filter((r) => r.status === 'review').length,

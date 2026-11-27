@@ -163,7 +163,10 @@ function partnerEmail(reg, { qrSrc, code }) {
     Au programme : à ${esc(time(EVENT.startTime))}, initiation boxe encadrée par nos coachs ; à ${esc(time(EVENT.lunchTime))}, déjeuner ; puis un temps de rencontres entre entrepreneurs.<br><br>
     Prévoyez une tenue souple pour l'initiation. Cette invitation est nominative et valable pour une entrée.
   </td></tr>
-  <tr><td style="padding:22px 8px 0;">
+  <tr><td style="padding:26px 8px 0;">
+    ${button(links.view, 'Voir mon invitation')}
+  </td></tr>
+  <tr><td style="padding:18px 8px 0;">
     <a href="${links.ics}" style="font-family:${SANS};font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#eae5da;text-decoration:underline;">Ajouter à l'agenda</a>
   </td></tr>`;
   return {
@@ -209,7 +212,7 @@ function messageEmail(reg, { subject, body, withInvitation = false }) {
   const text = fill(body);
   const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
   const html = paragraphs.map((p) => `<p style="margin:0 0 16px;">${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
-  const link = withInvitation && reg.token && reg.status === 'paid' ? invitationLinks(reg).view : null;
+  const link = withInvitation && reg.token && (reg.status === 'paid' || reg.status === 'partner') ? invitationLinks(reg).view : null;
   const bodyHtml = `
   <tr><td bgcolor="#191815" style="background:#191815;border:1px solid #6b5a3a;padding:34px 30px 18px;">
     <div style="font-family:${SANS};font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#c4a46a;">${esc(EVENT.shortName)} · ${esc(EVENT.dateLabel)}</div>

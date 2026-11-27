@@ -239,7 +239,7 @@
       ? ["bad", "<b>" + plural(failed, "invitation n’a", "invitations n’ont") + " pas pu partir.</b> <button class=\"link\" data-goto=\"mail\">Renvoyer</button>"]
       : ["ok", "<b>Invitations envoyées</b> : " + (s.invitations_sent || 0) + " / " + s.paid]);
     if (w.today && w.sends_on && w.today < w.sends_on) items.push(["", "<b>Rappel de la veille</b> : envoi automatique le 3 décembre vers 10 h"]);
-    else items.push([(s.reminders_sent || 0) >= s.paid ? "ok" : "warn", "<b>Rappels envoyés</b> : " + (s.reminders_sent || 0) + " / " + s.paid]);
+    else items.push([(s.reminders_sent || 0) >= (s.reminders_target || s.paid) ? "ok" : "warn", "<b>Rappels envoyés</b> : " + (s.reminders_sent || 0) + " / " + (s.reminders_target || s.paid)]);
     if (s.review) items.push(["bad", "<b>" + plural(s.review, "paiement", "paiements") + " à vérifier</b> (montant ou référence inattendus)"]);
     var left = Math.max(0, s.max - s.paid);
     items.push([left === 0 ? "bad" : left < 10 ? "warn" : "ok", "<b>Places</b> : " + plural(left, "restante", "restantes") + " sur " + s.max]);
@@ -836,15 +836,16 @@
 
     var w = data.reminders || {};
     var before = w.today && w.sends_on && w.today < w.sends_on;
-    $("remPill").className = "pill " + (before ? "" : (s.reminders_sent >= s.paid ? "pill--ok" : "pill--warn"));
-    $("remPill").textContent = (s.reminders_sent || 0) + " / " + s.paid + " envoyés";
+    var target = s.reminders_target || s.paid;
+    $("remPill").className = "pill " + (before ? "" : (s.reminders_sent >= target ? "pill--ok" : "pill--warn"));
+    $("remPill").textContent = (s.reminders_sent || 0) + " / " + target + " envoyés";
     $("remText").textContent = before
-      ? "Envoi automatique le 3 décembre vers 10 h, avec deux nouveaux essais à 14 h et 18 h pour ceux qui manqueraient. Le bouton ci-dessous ne sert qu’en secours, la veille ou le jour même."
-      : "Chaque inscrit payé ne reçoit le rappel qu’une seule fois. Le bouton envoie le rappel à ceux qui ne l’ont pas encore reçu.";
+      ? "Envoi automatique le 3 décembre vers 10 h aux inscrits payés et aux partenaires invités par e-mail, avec deux nouveaux essais à 14 h et 18 h. Le bouton ci-dessous ne sert qu’en secours, la veille ou le jour même."
+      : "Chaque invité (inscrits payés et partenaires ayant une adresse e-mail) ne reçoit le rappel qu’une fois. Le bouton l’envoie à ceux qui ne l’ont pas encore reçu.";
     $("sendReminders").disabled = Boolean(before);
 
     var sel = $("msgAudience");
-    var current = sel.value || "paid";
+    var current = sel.value || "everyone";
     sel.innerHTML = Object.keys(data.audiences || {}).map(function (k) {
       var a = data.audiences[k];
       return '<option value="' + k + '"' + (k === current ? " selected" : "") + ">" + esc(a.label) + " (" + a.count + ")</option>";
@@ -974,7 +975,7 @@
 
   $("sendReminders").addEventListener("click", function () {
     var btn = this;
-    ask("Envoyer les rappels maintenant ?", "Le rappel « C’est demain » part à tous les inscrits payés qui ne l’ont pas encore reçu.", "Envoyer").then(function (ok) {
+    ask("Envoyer les rappels maintenant ?", "Le rappel « C’est demain » part à tous les invités (inscrits payés et partenaires) qui ne l’ont pas encore reçu.", "Envoyer").then(function (ok) {
       if (!ok) return;
       btn.disabled = true;
       post("/api/gestion/reminders").then(function (r) {
@@ -990,7 +991,7 @@
   /* Composition d'un message */
   var TEMPLATES = {
     infos: {
-      audience: "paid", invite: true,
+      audience: "everyone", invite: true,
       subject: "Infos pratiques · Rencontre Entrepreneurs du 4 décembre",
       body: "Bonjour {prenom},\n\nNous avons hâte de vous accueillir vendredi 4 décembre au Boxing Center, 61 route d’Espagne à Portet-sur-Garonne.\n\nAccueil dès 11 h 30 pour l’initiation boxe encadrée par nos coachs : prévoyez une tenue souple. Le déjeuner est servi à 12 h 15, suivi d’un temps de rencontres entre entrepreneurs.\n\nGardez votre invitation avec son QR code à portée de main : elle sera scannée à l’entrée.\n\nÀ très vite,\nLe Business Club du Boxing Center",
     },

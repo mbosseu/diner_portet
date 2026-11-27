@@ -250,7 +250,15 @@
     document.getElementById("okEmail").textContent = reg.email;
     document.getElementById("tName").textContent = reg.first_name + " " + reg.last_name;
     document.getElementById("tCompany").textContent = [reg.role, reg.company].filter(Boolean).join(" · ");
-    document.getElementById("tRef").textContent = reg.id;
+    var partner = reg.status === "partner";
+    var m = /^DP-PART(\d{2})$/.exec(reg.id || "");
+    document.getElementById("tRef").textContent = partner && m ? "BC-PART-" + m[1] : reg.id;
+    if (partner) {
+      var lbl = document.querySelector(".confirm-head .label");
+      if (lbl) lbl.textContent = "Invitation partenaire";
+      var kicker = document.querySelector(".ticket-kicker");
+      if (kicker) kicker.textContent = "Invitation partenaire · offerte";
+    }
 
     var qr = document.getElementById("qr");
     qr.innerHTML = "";
@@ -309,7 +317,7 @@
       fetch("/api/registrations/" + encodeURIComponent(qid) + "?t=" + encodeURIComponent(qt))
         .then(function (r) { return r.json(); })
         .then(function (res) {
-          if (res.ok && res.registration.status === "paid") showInvitation(res.registration, qid, qt);
+          if (res.ok && (res.registration.status === "paid" || res.registration.status === "partner")) showInvitation(res.registration, qid, qt);
           else if (res.ok) confirmPayment(qid, qt, 0);
           else badLink();
         })

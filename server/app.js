@@ -421,8 +421,7 @@ async function reconcileQuietly(opts) {
  */
 async function sendReminders(scope, { budgetMs = 20000, concurrency = 4 } = {}) {
   const started = Date.now();
-  const todo = (await store.listAll()).filter((reg) =>
-    reg.status === 'paid' && !reg.reminder_sent_at && (scope === 'live') === isLive(reg));
+  const todo = (await store.listAll()).filter((reg) => isReminderTarget(reg) && !reg.reminder_sent_at && (scope === 'live') === isLive(reg));
   const sent = [];
   const failed = [];
   let next = 0;
@@ -442,6 +441,11 @@ async function sendReminders(scope, { budgetMs = 20000, concurrency = 4 } = {}) 
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, todo.length) }, worker));
   return { sent, failed, remaining: todo.length - next };
+}
+
+/** Qui reçoit le rappel : les inscrits payés, et les partenaires à qui une invitation a été attribuée par e-mail. */
+function isReminderTarget(reg) {
+  return reg.status === 'paid' || (reg.status === 'partner' && Boolean(reg.email) && Boolean(reg.token));
 }
 
 /** Date du jour à Paris (AAAA-MM-JJ). */
