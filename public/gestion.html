@@ -9,105 +9,379 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/gestion.css?v=2">
+  <link rel="stylesheet" href="css/gestion.css?v=11">
 </head>
 <body>
-  <header class="g-head">
-    <a class="g-mark" href="index.html"><span>Boxing Center</span><em>Business Club</em></a>
-    <div class="g-head-right">
-      <span class="g-badge">Gestion</span>
-      <button class="g-link" id="logout" type="button" hidden>Déconnexion</button>
-    </div>
-  </header>
+  <!-- Icônes (traits fins, une seule famille) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-dash" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="4.5" rx="1.5"/><rect x="13.5" y="11" width="7" height="9.5" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-entry" viewBox="0 0 24 24"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><path d="M8 12h8"/></symbol>
+    <symbol id="i-guests" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.5"/><path d="M2.5 19.5c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5"/><path d="M15.5 5.2a3.5 3.5 0 0 1 0 6.6M17.5 14.8c2 .7 3.4 2.3 4 4.7"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V4h10v5"/><rect x="3.5" y="9" width="17" height="8" rx="1.5"/><path d="M7 14h10v6H7z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4.5V11h-6.5"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  </svg>
 
-  <!-- Connexion -->
-  <main class="g-lock" id="lock" hidden>
-    <p class="g-eyebrow">Espace organisateur</p>
-    <h1>Gestion de <em>l’événement</em></h1>
-    <p class="g-muted">Inscrits, paiements et contrôle des invitations à l’entrée.</p>
-    <form id="loginForm" autocomplete="on">
-      <label for="pwd">Mot de passe</label>
-      <input type="password" id="pwd" name="password" autocomplete="current-password" required>
-      <button class="g-btn" type="submit">Se connecter</button>
-      <p class="g-error" id="loginError" role="alert" hidden></p>
-    </form>
+  <!-- ===================== Connexion ===================== -->
+  <main class="lock" id="lock" hidden>
+    <div class="lock-card">
+      <div class="brand"><span>Boxing Center</span><em>Business Club</em></div>
+      <h1 class="lock-title">Espace <em>organisateur</em></h1>
+      <p class="lock-text">Inscrits, paiements, accueil des invités et e-mails de la Rencontre Entrepreneurs.</p>
+      <form id="loginForm" class="stack" autocomplete="on">
+        <label class="field">
+          <span class="field-label">Mot de passe</span>
+          <input class="input" type="password" id="pwd" name="password" autocomplete="current-password" required>
+        </label>
+        <button class="btn btn--primary btn--block" type="submit">Se connecter</button>
+        <p class="form-error" id="loginError" role="alert" hidden></p>
+      </form>
+    </div>
   </main>
 
-  <!-- Tableau de bord -->
-  <div id="app" hidden>
-    <section class="g-stats" aria-label="Chiffres clés">
-      <div class="g-stat"><span>Inscrits payés</span><b id="sPaid">–</b><small id="sMax"></small></div>
-      <div class="g-stat"><span>Présents</span><b id="sPresent">–</b><small id="sExpected"></small></div>
-      <div class="g-stat"><span>Partenaires</span><b id="sPartners">–</b><small>invitations utilisées</small></div>
-      <div class="g-stat"><span>En attente</span><b id="sPending">–</b><small>paiement non finalisé</small></div>
-      <div class="g-stat"><span>Recettes</span><b id="sRevenue">–</b><small>paiements confirmés</small></div>
-    </section>
-
-    <nav class="g-tabs" role="tablist">
-      <button role="tab" class="g-tab" data-tab="list" aria-selected="true">Inscrits</button>
-      <button role="tab" class="g-tab" data-tab="scan" aria-selected="false">Scanner</button>
-      <button role="tab" class="g-tab" data-tab="present" aria-selected="false">Présents</button>
-    </nav>
-
-    <!-- Inscrits -->
-    <section class="g-panel" id="tab-list">
-      <div class="g-toolbar">
-        <input type="search" id="search" placeholder="Rechercher un nom, une entreprise, un e-mail…" aria-label="Rechercher">
-        <select id="filter" aria-label="Filtrer">
-          <option value="paid">Payés</option>
-          <option value="absent">Payés, pas encore arrivés</option>
-          <option value="pending">Paiement en attente</option>
-          <option value="partner">Partenaires</option>
-          <option value="all">Tous</option>
-        </select>
+  <!-- ===================== Application ===================== -->
+  <div class="app" id="app" hidden>
+    <aside class="side">
+      <div class="brand side-brand"><span>Boxing Center</span><em>Business Club</em></div>
+      <nav class="nav" aria-label="Sections">
+        <button class="nav-item" data-view="dash" aria-current="page"><svg><use href="#i-dash"/></svg><span>Tableau de bord</span></button>
+        <button class="nav-item" data-view="entry"><svg><use href="#i-entry"/></svg><span>Entrée</span></button>
+        <button class="nav-item" data-view="guests"><svg><use href="#i-guests"/></svg><span>Invités</span></button>
+        <button class="nav-item" data-view="mail"><svg><use href="#i-mail"/></svg><span>E-mails</span><b class="nav-dot" id="mailDot" hidden></b></button>
+      </nav>
+      <div class="side-foot">
+        <label class="switch"><input type="checkbox" id="showTest"><span class="switch-ui"></span><span>Afficher les tests</span></label>
+        <button class="btn btn--ghost btn--sm" id="logout" type="button">Déconnexion</button>
       </div>
-      <div class="g-toolbar g-toolbar--actions">
-        <a class="g-btn g-btn--line" id="exportCsv" href="/api/gestion/export.csv">Exporter (Excel)</a>
-        <button class="g-btn g-btn--line" id="print" type="button">Imprimer la liste</button>
-        <button class="g-btn g-btn--line" id="sendReminders" type="button">Envoyer les rappels</button>
-        <label class="g-check"><input type="checkbox" id="showTest"> Inclure les tests</label>
-      </div>
-      <p class="g-count" id="reminderInfo"></p>
-      <p class="g-count" id="count"></p>
-      <ul class="g-list" id="list"></ul>
-    </section>
+    </aside>
 
-    <!-- Scanner -->
-    <section class="g-panel" id="tab-scan" hidden>
-      <div class="g-scan">
-        <div class="g-video">
-          <video id="video" playsinline muted></video>
-          <canvas id="canvas" hidden></canvas>
-          <div class="g-frame" aria-hidden="true"></div>
-          <button class="g-btn" id="startCam" type="button">Activer la caméra</button>
+    <div class="main">
+      <header class="top">
+        <div class="top-titles">
+          <p class="top-eyebrow" id="eventMeta">Vendredi 4 décembre 2026</p>
+          <h1 class="top-title" id="viewTitle">Tableau de bord</h1>
         </div>
-        <div class="g-result" id="result" data-state="idle" role="status" aria-live="assertive">
-          <span class="g-result-k" id="resultK">Prêt</span>
-          <b id="resultMsg">Présentez le QR code de l’invitation devant la caméra.</b>
-          <small id="resultSub"></small>
+        <div class="top-actions">
+          <span class="sync" id="sync" aria-live="polite"></span>
+          <button class="btn btn--icon" id="refresh" type="button" aria-label="Actualiser"><svg><use href="#i-refresh"/></svg></button>
+          <button class="btn btn--icon only-mobile" id="moreBtn" type="button" aria-label="Plus d’options" aria-expanded="false"><svg><use href="#i-more"/></svg></button>
         </div>
-        <form class="g-manual" id="manualForm">
-          <label for="manual">Saisie manuelle</label>
-          <div class="g-manual-row">
-            <input id="manual" placeholder="DP-XXXXXXXX ou BC-PART-01" autocomplete="off" autocapitalize="characters">
-            <button class="g-btn" type="submit">Valider</button>
+        <div class="more-menu" id="moreMenu" hidden>
+          <label class="switch"><input type="checkbox" id="showTestM"><span class="switch-ui"></span><span>Afficher les tests</span></label>
+          <button class="btn btn--ghost btn--sm" id="logoutM" type="button">Déconnexion</button>
+        </div>
+      </header>
+
+      <p class="test-banner" id="testBanner" hidden>Les inscriptions de test (Studio) sont affichées. Elles ne comptent jamais dans les places ni les recettes.</p>
+
+      <!-- ---------- Tableau de bord ---------- -->
+      <section class="view" data-view="dash">
+        <div class="kpis">
+          <article class="card kpi">
+            <p class="kpi-label">Inscrits payés</p>
+            <p class="kpi-value"><span id="kPaid">–</span><small id="kPaidMax"></small></p>
+            <div class="meter"><i id="kPaidBar"></i></div>
+            <p class="kpi-foot" id="kPaidFoot"></p>
+          </article>
+          <article class="card kpi">
+            <p class="kpi-label">Présents</p>
+            <p class="kpi-value"><span id="kPresent">–</span><small id="kPresentMax"></small></p>
+            <div class="meter meter--ok"><i id="kPresentBar"></i></div>
+            <p class="kpi-foot" id="kPresentFoot"></p>
+          </article>
+          <article class="card kpi">
+            <p class="kpi-label">Recettes</p>
+            <p class="kpi-value"><span id="kRevenue">–</span></p>
+            <p class="kpi-foot" id="kRevenueFoot"></p>
+          </article>
+          <article class="card kpi">
+            <p class="kpi-label">Paiements en attente</p>
+            <p class="kpi-value"><span id="kPending">–</span></p>
+            <p class="kpi-foot">inscription commencée, paiement non finalisé</p>
+          </article>
+        </div>
+
+        <div class="grid-2">
+          <article class="card">
+            <header class="card-head"><h2>À surveiller</h2></header>
+            <ul class="checks" id="watchList"></ul>
+          </article>
+          <article class="card">
+            <header class="card-head"><h2>L’événement</h2><span class="pill" id="countdown"></span></header>
+            <dl class="facts">
+              <div><dt>Date</dt><dd>Vendredi 4 décembre 2026</dd></div>
+              <div><dt>Programme</dt><dd>11 h 30 initiation boxe · 12 h 15 déjeuner · networking</dd></div>
+              <div><dt>Lieu</dt><dd>Boxing Center, 61 route d’Espagne, 31120 Portet-sur-Garonne</dd></div>
+              <div><dt>Tarif</dt><dd>10 € par personne, déjeuner compris</dd></div>
+            </dl>
+          </article>
+        </div>
+
+        <div class="grid-3">
+          <article class="card">
+            <header class="card-head"><h2>Dernières arrivées</h2><button class="link" data-goto="entry">Entrée</button></header>
+            <ul class="mini-list" id="dashArrivals"></ul>
+          </article>
+          <article class="card">
+            <header class="card-head"><h2>Dernières inscriptions</h2><button class="link" data-goto="guests">Tous les invités</button></header>
+            <ul class="mini-list" id="dashLatest"></ul>
+          </article>
+          <article class="card">
+            <header class="card-head"><h2>Secteurs représentés</h2></header>
+            <ul class="bars" id="dashSectors"></ul>
+          </article>
+        </div>
+      </section>
+
+      <!-- ---------- Accueil (entrée) ---------- -->
+      <section class="view" data-view="entry" hidden>
+        <div class="entry-status card">
+          <div class="entry-count"><b id="eCount">0</b><span id="eCountOf">présent</span></div>
+          <div class="meter meter--ok entry-meter"><i id="eBar"></i></div>
+          <label class="switch"><input type="checkbox" id="rehearsal"><span class="switch-ui"></span><span>Mode répétition<small>accepte les invitations de test</small></span></label>
+        </div>
+
+        <div class="result" id="result" data-state="idle" role="status" aria-live="assertive">
+          <span class="result-k" id="resultK">Prêt</span>
+          <b class="result-msg" id="resultMsg">Scannez un QR code ou recherchez l’invité par son nom.</b>
+          <small class="result-sub" id="resultSub"></small>
+        </div>
+
+        <div class="segmented entry-mode" role="radiogroup" aria-label="Mode de contrôle">
+          <label><input type="radio" name="entryMode" value="scan" checked><span>QR code</span></label>
+          <label><input type="radio" name="entryMode" value="search"><span>Par nom</span></label>
+        </div>
+
+        <div class="entry-grid" id="entryGrid" data-mode="scan">
+          <article class="card entry-scan">
+            <header class="card-head"><h2>Scanner le QR code</h2></header>
+            <div class="scanner">
+              <video id="video" playsinline muted></video>
+              <canvas id="canvas" hidden></canvas>
+              <div class="scanner-frame" aria-hidden="true"></div>
+              <button class="btn btn--primary" id="startCam" type="button">Activer la caméra</button>
+              <button class="btn btn--ghost btn--sm scanner-stop" id="stopCam" type="button" hidden>Arrêter la caméra</button>
+            </div>
+            <p class="hint">Gardez le QR code dans le cadre. S’il ne passe pas, recherchez l’invité par son nom.</p>
+          </article>
+
+          <div class="stack entry-search">
+            <article class="card">
+              <header class="card-head"><h2>Recherche manuelle</h2></header>
+              <label class="search">
+                <svg><use href="#i-search"/></svg>
+                <input class="input" id="entrySearch" type="search" placeholder="Nom, entreprise, téléphone ou référence" autocomplete="off" aria-label="Rechercher un invité">
+              </label>
+              <ul class="entry-results" id="entryResults"></ul>
+            </article>
+
+            <article class="card">
+              <header class="card-head"><h2>Invitation partenaire</h2></header>
+              <form class="partner-form" id="partnerForm">
+                <input class="input" id="partnerCode" placeholder="BC-PART-01" autocomplete="off" autocapitalize="characters" aria-label="Code partenaire" required>
+                <input class="input" id="partnerName" placeholder="Nom de l’invité (facultatif)" autocomplete="off" aria-label="Nom de l’invité partenaire">
+                <button class="btn btn--primary" type="submit">Valider</button>
+              </form>
+              <p class="hint">Chaque code BC-PART-01 à 10 n’ouvre qu’une seule entrée.</p>
+            </article>
           </div>
-          <label class="g-check"><input type="checkbox" id="allowTest"> Accepter les invitations de test (répétition)</label>
-        </form>
-      </div>
-    </section>
+        </div>
 
-    <!-- Présents -->
-    <section class="g-panel" id="tab-present" hidden>
-      <p class="g-count" id="presentCount"></p>
-      <ul class="g-list" id="presentList"></ul>
-    </section>
+        <article class="card">
+          <header class="card-head"><h2>Arrivées récentes</h2></header>
+          <ul class="mini-list" id="entryArrivals"></ul>
+        </article>
+      </section>
+
+      <!-- ---------- Invités ---------- -->
+      <section class="view" data-view="guests" hidden>
+        <div class="toolbar">
+          <label class="search toolbar-search">
+            <svg><use href="#i-search"/></svg>
+            <input class="input" id="search" type="search" placeholder="Rechercher un nom, une entreprise, un e-mail…" aria-label="Rechercher">
+          </label>
+          <div class="toolbar-actions">
+            <button class="btn btn--primary" id="addGuest" type="button"><svg><use href="#i-plus"/></svg>Ajouter un invité</button>
+            <a class="btn btn--ghost" id="exportCsv" href="/api/gestion/export.csv"><svg><use href="#i-down"/></svg>Exporter</a>
+            <button class="btn btn--ghost" id="printList" type="button"><svg><use href="#i-print"/></svg>Liste</button>
+            <button class="btn btn--ghost" id="printBadges" type="button"><svg><use href="#i-print"/></svg>Badges</button>
+          </div>
+        </div>
+        <div class="chips" id="filters" role="tablist" aria-label="Filtrer les invités"></div>
+        <div class="list-meta">
+          <p class="list-count" id="listCount"></p>
+          <label class="sort"><span>Trier</span>
+            <select class="input input--sm" id="sort" aria-label="Trier la liste">
+              <option value="name">Nom A → Z</option>
+              <option value="arrival">Arrivée la plus récente</option>
+              <option value="recent">Inscription la plus récente</option>
+              <option value="company">Entreprise A → Z</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="table" id="table" role="table" aria-label="Invités">
+          <div class="tr th" role="row">
+            <span role="columnheader">Invité</span><span role="columnheader">Entreprise</span>
+            <span role="columnheader">Contact</span><span role="columnheader">Statut</span>
+          </div>
+          <div id="rows"></div>
+        </div>
+        <button class="btn btn--ghost btn--block" id="more" type="button" hidden></button>
+      </section>
+
+      <!-- ---------- E-mails ---------- -->
+      <section class="view" data-view="mail" hidden>
+        <div class="grid-2">
+          <article class="card">
+            <header class="card-head"><h2>Invitations</h2><span class="pill" id="invPill"></span></header>
+            <p class="card-text" id="invText"></p>
+            <ul class="mini-list" id="invFailed"></ul>
+            <div class="card-actions">
+              <button class="btn btn--ghost" id="resendFailed" type="button" hidden>Renvoyer toutes les invitations en échec</button>
+            </div>
+          </article>
+          <article class="card">
+            <header class="card-head"><h2>Rappel de la veille</h2><span class="pill" id="remPill"></span></header>
+            <p class="card-text" id="remText"></p>
+            <div class="card-actions">
+              <button class="btn btn--ghost" id="sendReminders" type="button">Envoyer les rappels maintenant</button>
+            </div>
+          </article>
+        </div>
+
+        <article class="card">
+          <header class="card-head"><h2>Nouveau message aux participants</h2></header>
+          <div class="composer">
+            <form class="stack" id="msgForm">
+              <div class="row-2">
+                <label class="field">
+                  <span class="field-label">Modèle</span>
+                  <select class="input" id="msgTemplate">
+                    <option value="">Message libre</option>
+                    <option value="infos">Infos pratiques</option>
+                    <option value="merci">Merci de votre venue</option>
+                    <option value="relance">Relance paiement</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field-label">Destinataires</span>
+                  <select class="input" id="msgAudience"></select>
+                </label>
+              </div>
+              <label class="field">
+                <span class="field-label">Objet</span>
+                <input class="input" id="msgSubject" maxlength="150" required>
+              </label>
+              <label class="field">
+                <span class="field-label">Message</span>
+                <textarea class="input" id="msgBody" rows="9" maxlength="6000" required></textarea>
+                <span class="field-help">Laissez une ligne vide entre deux paragraphes. {prenom} est remplacé par le prénom de chaque invité.</span>
+              </label>
+              <label class="check"><input type="checkbox" id="msgInvite"> Ajouter le bouton « Voir mon invitation » (inscrits payés)</label>
+              <div class="send-test">
+                <input class="input" id="msgTestTo" type="email" placeholder="Votre adresse pour un essai" aria-label="Adresse pour l’essai">
+                <button class="btn btn--ghost" id="msgTest" type="button">Envoyer un essai</button>
+              </div>
+              <div class="card-actions">
+                <button class="btn btn--primary" id="msgSend" type="submit">Envoyer</button>
+                <span class="hint" id="msgStatus"></span>
+              </div>
+            </form>
+            <div class="preview">
+              <p class="field-label">Aperçu</p>
+              <iframe id="msgPreview" title="Aperçu de l’e-mail" sandbox=""></iframe>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <header class="card-head"><h2>Messages envoyés</h2></header>
+          <ul class="mini-list" id="msgHistory"></ul>
+        </article>
+      </section>
+    </div>
+
+    <nav class="tabbar" aria-label="Sections">
+      <button class="tab-item" data-view="dash" aria-current="page"><svg><use href="#i-dash"/></svg><span>Tableau</span></button>
+      <button class="tab-item" data-view="entry"><svg><use href="#i-entry"/></svg><span>Entrée</span></button>
+      <button class="tab-item" data-view="guests"><svg><use href="#i-guests"/></svg><span>Invités</span></button>
+      <button class="tab-item" data-view="mail"><svg><use href="#i-mail"/></svg><span>E-mails</span></button>
+    </nav>
   </div>
 
-  <!-- Liste imprimable -->
-  <section class="g-print" id="printArea" aria-hidden="true"></section>
+  <!-- Fiche invité -->
+  <div class="drawer" id="drawer" hidden>
+    <div class="drawer-backdrop" data-close></div>
+    <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="dTitle">
+      <header class="drawer-head">
+        <div><h2 id="dTitle"></h2><p class="drawer-sub" id="dSub"></p></div>
+        <button class="btn btn--icon" data-close aria-label="Fermer"><svg><use href="#i-close"/></svg></button>
+      </header>
+      <div class="drawer-body" id="dBody"></div>
+    </aside>
+  </div>
+
+  <!-- Ajout d'un invité -->
+  <div class="drawer" id="addDrawer" hidden>
+    <div class="drawer-backdrop" data-close></div>
+    <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="addTitle">
+      <header class="drawer-head">
+        <div><h2 id="addTitle">Ajouter un invité</h2><p class="drawer-sub">Inscription sur place ou invitation offerte</p></div>
+        <button class="btn btn--icon" data-close aria-label="Fermer"><svg><use href="#i-close"/></svg></button>
+      </header>
+      <form class="drawer-body stack" id="addForm" novalidate>
+        <div class="segmented" role="radiogroup" aria-label="Type d’inscription">
+          <label><input type="radio" name="kind" value="onsite" checked><span>Payé sur place · 10 €</span></label>
+          <label><input type="radio" name="kind" value="free"><span>Invité gratuit</span></label>
+        </div>
+        <div class="row-2">
+          <label class="field"><span class="field-label">Prénom</span><input class="input" name="first_name" required autocomplete="off"><span class="field-err"></span></label>
+          <label class="field"><span class="field-label">Nom</span><input class="input" name="last_name" required autocomplete="off"><span class="field-err"></span></label>
+        </div>
+        <label class="field"><span class="field-label">E-mail</span><input class="input" name="email" type="email" autocomplete="off"><span class="field-err"></span></label>
+        <label class="field"><span class="field-label">Téléphone</span><input class="input" name="phone" type="tel" autocomplete="off"></label>
+        <div class="row-2">
+          <label class="field"><span class="field-label">Entreprise</span><input class="input" name="company" autocomplete="off"></label>
+          <label class="field"><span class="field-label">Fonction</span><input class="input" name="role" autocomplete="off"></label>
+        </div>
+        <label class="field"><span class="field-label">Secteur</span><select class="input" name="sector" data-sectors></select></label>
+        <label class="field"><span class="field-label">Note interne</span><textarea class="input" name="note" rows="2"></textarea></label>
+        <label class="check"><input type="checkbox" name="checkin"> Marquer présent maintenant</label>
+        <label class="check"><input type="checkbox" name="send"> Envoyer l’invitation avec QR code par e-mail</label>
+        <p class="form-error" id="addError" role="alert" hidden></p>
+        <div class="card-actions">
+          <button class="btn btn--primary" type="submit">Ajouter l’invité</button>
+          <button class="btn btn--ghost" type="button" data-close>Annuler</button>
+        </div>
+      </form>
+    </aside>
+  </div>
+
+  <!-- Confirmation -->
+  <dialog class="confirm" id="confirm">
+    <form method="dialog">
+      <h2 id="cTitle"></h2>
+      <p id="cText"></p>
+      <div class="card-actions">
+        <button class="btn btn--primary" value="ok" id="cOk">Confirmer</button>
+        <button class="btn btn--ghost" value="cancel">Annuler</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- Impressions -->
+  <section class="print-area" id="printArea" aria-hidden="true"></section>
 
   <script src="js/vendor/jsQR.js"></script>
-  <script src="js/gestion.js?v=3"></script>
+  <script src="js/gestion.js?v=11"></script>
 </body>
 </html>

@@ -212,3 +212,85 @@ test('back-office : suivi des rappels, bouton de secours refusé avant la veille
   }
   assert.equal((await call('POST', '/api/gestion/reminders', {}, false)).status, 401);
 });
+
+/* ---------- Gestion de l'événement : ajout, correction, annulation, e-mails ---------- */
+
+test('ajout d’un invité sur place : payé 10 €, présent, nom remis en forme ; doublon d’e-mail signalé', async () => {
+  const r = await call('POST', '/api/gestion/guests', {
+    first_name: 'rachid', last_name: 'OUALI', email: 'rachid@example.com', company: 'Ouali Transport', kind: 'onsite', checkin: true,
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const g = r.body.registration;
+  assert.equal(g.first_name, 'Rachid');
+  assert.equal(g.last_name, 'Ouali');
+  assert.equal(g.status, 'paid');
+  assert.equal(g.source, 'onsite');
+  assert.equal(g.amount_cents, 1000);
+  assert.ok(g.checked_in_at);
+  const dup = await call('POST', '/api/gestion/guests', { first_name: 'R', last_name: 'O', email: 'rachid@example.com' });
+  assert.equal(dup.status, 409);
+  assert.equal(dup.body.error, 'already_registered');
+  const forced = await call('POST', '/api/gestion/guests', { first_name: 'R', last_name: 'O', email: 'rachid@example.com', force: true, kind: 'free' });
+  assert.equal(forced.body.registration.amount_cents, 0);
+  assert.equal(forced.body.registration.source, 'free');
+  const bad = await call('POST', '/api/gestion/guests', { first_name: '', last_name: 'X', email: 'pas-un-email' });
+  assert.equal(bad.status, 400);
+  assert.deepEqual(Object.keys(bad.body.fields).sort(), ['email', 'first_name']);
+  assert.equal((await call('POST', '/api/gestion/guests', { first_name: 'A', last_name: 'B' }, false)).status, 401);
+});
+
+test('correction des coordonnées et note interne ; adresse invalide refusée', async () => {
+  const reg = await seed();
+  const ok = await call('POST', '/api/gestion/guests/update', { id: reg.id, email: 'nouvelle@example.com', note: 'Végétarien' });
+  assert.equal(ok.body.registration.email, 'nouvelle@example.com');
+  assert.equal(ok.body.registration.note, 'Végétarien');
+  assert.equal(ok.body.registration.first_name, 'Camille', 'les autres champs sont conservés');
+  const bad = await call('POST', '/api/gestion/guests/update', { id: reg.id, email: 'faux@' });
+  assert.equal(bad.status, 400);
+  assert.equal((await store.load(reg.id)).email, 'nouvelle@example.com');
+});
+
+test('annuler une inscription : QR refusé ; rétablir ; paiement non finalisé encaissé sur place', async () => {
+  const reg = await seed();
+  assert.equal((await call('POST', '/api/gestion/guests/status', { id: reg.id, action: 'cancel' })).body.registration.status, 'cancelled');
+  const refused = await call('POST', '/api/gestion/checkin', { qr: qrPayload(reg) });
+  assert.equal(refused.body.result, 'refused');
+  assert.equal(refused.body.reason, 'unpaid');
+  assert.equal((await call('POST', '/api/gestion/guests/status', { id: reg.id, action: 'restore' })).body.registration.status, 'paid');
+
+  const pending = await seed({ status: 'pending', paid_at: null });
+  const paid = await call('POST', '/api/gestion/guests/status', { id: pending.id, action: 'pay_onsite' });
+  assert.equal(paid.body.registration.status, 'paid');
+  assert.equal(paid.body.registration.source, 'onsite');
+  assert.ok(paid.body.registration.checked_in_at);
+  assert.equal((await call('POST', '/api/gestion/guests/status', { id: pending.id, action: 'pay_onsite' })).status, 409, 'pas deux fois');
+});
+
+test('invitation partenaire avec le nom de la personne', async () => {
+  const r = await call('POST', '/api/gestion/checkin', { code: 'BC-PART-07', name: 'jean dupont' });
+  assert.equal(r.body.result, 'ok');
+  assert.match(r.body.message, /Jean Dupont/);
+  assert.equal(r.body.registration.first_name, 'Jean Dupont');
+});
+
+test('message groupé : aperçu, essai, envoi une seule fois par destinataire, audiences', async () => {
+  const preview = await call('POST', '/api/gestion/messages/preview', { subject: 'Infos {prenom}', body: 'Bonjour {prenom},\n\nÀ vendredi.' });
+  assert.match(preview.body.html, /Bonjour Camille/);
+  assert.match(preview.body.html, /Infos Camille/);
+  assert.equal((await call('POST', '/api/gestion/messages/send', { subject: '', body: 'x', audience: 'paid', campaign: 'm-test-1' })).status, 400);
+  const essai = await call('POST', '/api/gestion/messages/send', { subject: 'S', body: 'B', testTo: 'moi@example.com' });
+  assert.equal(essai.body.test, true);
+
+  const present = await seed();
+  await call('POST', '/api/gestion/checkin', { id: present.id });
+  const ov = (await call('GET', '/api/gestion/overview')).body;
+  assert.ok(ov.audiences.present.count >= 1);
+  const first = await call('POST', '/api/gestion/messages/send', { subject: 'Merci', body: 'Merci {prenom}', audience: 'present', campaign: 'm-merci-1' });
+  assert.equal(first.body.ok, true);
+  assert.equal(first.body.remaining, 0);
+  assert.equal(first.body.sent, ov.audiences.present.count);
+  assert.ok((await store.load(present.id)).messages_sent.some((m) => m.id === 'm-merci-1'));
+  const again = await call('POST', '/api/gestion/messages/send', { subject: 'Merci', body: 'Merci {prenom}', audience: 'present', campaign: 'm-merci-1' });
+  assert.equal(again.body.sent, 0, 'personne ne reçoit deux fois la même campagne');
+  assert.equal((await call('POST', '/api/gestion/messages/send', { subject: 'S', body: 'B', audience: 'tous', campaign: 'm-x-1234' })).status, 400);
+});

@@ -154,6 +154,33 @@ function reminderEmail(reg, { qrSrc }) {
   };
 }
 
+/**
+ * Message libre de l'organisateur (back-office, onglet E-mails), dans la charte des invitations.
+ * `body` : texte brut ; une ligne vide sépare les paragraphes ; {prenom} et {nom} sont remplacés.
+ */
+function messageEmail(reg, { subject, body, withInvitation = false }) {
+  const fill = (s) => String(s || '')
+    .replace(/\{prenom\}/gi, reg.first_name || '')
+    .replace(/\{nom\}/gi, reg.last_name || '')
+    .trim();
+  const text = fill(body);
+  const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  const html = paragraphs.map((p) => `<p style="margin:0 0 16px;">${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
+  const link = withInvitation && reg.token && reg.status === 'paid' ? invitationLinks(reg).view : null;
+  const bodyHtml = `
+  <tr><td bgcolor="#191815" style="background:#191815;border:1px solid #6b5a3a;padding:34px 30px 18px;">
+    <div style="font-family:${SANS};font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#c4a46a;">${esc(EVENT.shortName)} · ${esc(EVENT.dateLabel)}</div>
+    <div style="font-family:${SERIF};font-size:30px;line-height:36px;color:#eae5da;margin:12px 0 22px;">${esc(fill(subject))}</div>
+    <div style="font-family:${SANS};font-size:14px;line-height:23px;color:#b9b2a6;">${html}</div>
+  </td></tr>
+  ${link ? `<tr><td style="padding:26px 8px 0;">${button(link, 'Voir mon invitation')}</td></tr>` : ''}`;
+  return {
+    subject: fill(subject),
+    html: layout({ preheader: paragraphs[0] ? paragraphs[0].slice(0, 120) : fill(subject), body: bodyHtml }),
+    text: `${text}${link ? `\n\nVotre invitation : ${link}` : ''}\n\nBusiness Club · Boxing Center`,
+  };
+}
+
 /** Copie interne pour l'organisateur (préparation du networking). */
 function organizerEmail(reg) {
   const rows = [
@@ -179,4 +206,4 @@ function organizerEmail(reg) {
   };
 }
 
-module.exports = { confirmationEmail, reminderEmail, organizerEmail, invitationLinks };
+module.exports = { confirmationEmail, reminderEmail, organizerEmail, messageEmail, invitationLinks };

@@ -6,7 +6,9 @@
  *  - liste des inscrits (nom, entreprise, e-mail, téléphone, paiement, présence), export CSV ;
  *  - contrôle d'entrée : scan du QR code (signature vérifiée), une seule entrée par invitation ;
  *  - invitations partenaires BC-PART-01 à 10, une seule entrée chacune ;
- *  - renvoi de l'invitation par e-mail.
+ *  - renvoi de l'invitation par e-mail ;
+ *  - ajout d'un invité (payé sur place, invité gratuit), correction des coordonnées, annulation ;
+ *  - onglet E-mails : rappels, invitations en échec, message groupé aux participants.
  */
 
 const crypto = require('crypto');
@@ -96,8 +98,23 @@ function adminView(reg) {
     confirmation_sent_at: reg.confirmation_sent_at || null,
     confirmation_error: reg.confirmation_error || null,
     recovered: Boolean(reg.recovered_at),
+    checked_in_via: reg.checked_in_via || null,
+    reminder_sent_at: reg.reminder_sent_at || null,
+    note: reg.note || '',
+    source: reg.provider === 'manual' ? (reg.payment_kind === 'free' ? 'free' : 'onsite') : (reg.status === 'partner' ? 'partner' : 'online'),
+    messages: (reg.messages_sent || []).map((m) => ({ id: m.id, subject: m.subject, at: m.at })),
   };
 }
+
+const AUDIENCES = {
+  paid: { label: 'Tous les inscrits payés', test: (r) => r.status === 'paid' },
+  absent: { label: 'Inscrits pas encore arrivés', test: (r) => r.status === 'paid' && !r.checked_in_at },
+  present: { label: 'Participants présents', test: (r) => r.status === 'paid' && Boolean(r.checked_in_at) },
+  pending: { label: 'Paiements non finalisés', test: (r) => r.status === 'pending' },
+};
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const SAMPLE = { first_name: 'Camille', last_name: 'Durand', status: 'paid', token: 'apercu', id: 'DP-APERCU' };
 
 function partnerId(n) {
   return `DP-PART${String(n).padStart(2, '0')}`;
@@ -115,7 +132,10 @@ function hhmm(iso) {
   return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)).replace(':', ' h ');
 }
 
-function mount(app, { store, isLive, qrPayload, reconcile, resendInvitation, sendReminders, reminderWindow }) {
+function mount(app, {
+  store, isLive, qrPayload, reconcile, resendInvitation, sendReminders, reminderWindow,
+  newId, newToken, properName, clean, sectors = [], sendMessage, messageEmail,
+}) {
   function guard(req, res, next) {
     if (!isAuthed(req)) return res.status(401).json({ ok: false, error: 'login_required' });
     next();
@@ -167,7 +187,15 @@ function mount(app, { store, isLive, qrPayload, reconcile, resendInvitation, sen
         partners_total: PARTNER_INVITES,
         revenue_cents: paid.filter(isLive).reduce((s, r) => s + (r.amount_cents || 0), 0),
         reminders_sent: paid.filter((r) => r.reminder_sent_at).length,
+        invitations_sent: paid.filter((r) => r.confirmation_sent_at && !r.confirmation_error).length,
+        invitations_failed: paid.filter((r) => r.confirmation_error).length,
+        review: all.filter((r) => r.status === 'review').length,
+        onsite: paid.filter((r) => r.provider === 'manual').length,
       },
+      sectors,
+      audiences: Object.fromEntries(Object.entries(AUDIENCES).map(([k, a]) => [k, {
+        label: a.label, count: all.filter((r) => a.test(r) && r.email).length,
+      }])),
       reminders: reminderWindow ? reminderWindow() : null,
       registrations: all
         .filter((r) => r.status !== 'pending' || pending.includes(r))
@@ -198,9 +226,15 @@ function mount(app, { store, isLive, qrPayload, reconcile, resendInvitation, sen
         id, status: 'partner', first_name: 'Invité partenaire', last_name: `N° ${String(pn).padStart(2, '0')}`,
         email: '', company: 'Partenaire / sponsor', created_at: new Date().toISOString(), amount_cents: 0,
       };
+      const guestName = clean(req.body?.name, 80);
+      if (guestName) {
+        reg.first_name = properName(guestName);
+        reg.last_name = '';
+        reg.company = `Invitation partenaire N° ${String(pn).padStart(2, '0')}`;
+      }
       reg.checked_in_at = new Date().toISOString();
       await store.save(reg);
-      return res.json({ ok: true, result: 'ok', message: `Bienvenue — invitation partenaire N° ${String(pn).padStart(2, '0')}.`, registration: adminView(reg) });
+      return res.json({ ok: true, result: 'ok', message: guestName ? `Bienvenue ${reg.first_name} — invitation partenaire N° ${String(pn).padStart(2, '0')}.` : `Bienvenue — invitation partenaire N° ${String(pn).padStart(2, '0')}.`, registration: adminView(reg) });
     }
 
     // QR code (BCDINER|id|signature) ou référence saisie à la main
@@ -260,15 +294,160 @@ function mount(app, { store, isLive, qrPayload, reconcile, resendInvitation, sen
     res.json({ ok: true, sent: result.sent.length, failed: result.failed.length, remaining: result.remaining });
   });
 
+  /* ---------- Invités : ajout, correction, annulation ---------- */
+
+  function guestFields(body) {
+    const f = {
+      first_name: properName(body.first_name),
+      last_name: properName(body.last_name),
+      email: clean(body.email, 120).toLowerCase(),
+      phone: clean(body.phone, 30),
+      company: clean(body.company, 120),
+      role: clean(body.role, 80),
+      sector: clean(body.sector, 60),
+      note: String(body.note ?? '').trim().slice(0, 600),
+    };
+    const errors = {};
+    if (!f.first_name) errors.first_name = 'required';
+    if (f.email && !EMAIL_RE.test(f.email)) errors.email = 'invalid';
+    return { f, errors };
+  }
+
+  /* Ajout par l'organisateur : invité payé sur place (10 €) ou invité gratuit. */
+  app.post('/api/gestion/guests', guard, async (req, res) => {
+    const body = req.body || {};
+    const { f, errors } = guestFields(body);
+    if (!f.last_name) errors.last_name = 'required';
+    if (body.send && !f.email) errors.email = 'required';
+    if (Object.keys(errors).length) return res.status(400).json({ ok: false, error: 'invalid_fields', fields: errors });
+    const kind = body.kind === 'free' ? 'free' : 'onsite';
+    const all = await store.listAll();
+    if (f.email && !body.force && all.some((r) => isLive(r) && r.status === 'paid' && String(r.email).toLowerCase() === f.email)) {
+      return res.status(409).json({ ok: false, error: 'already_registered' });
+    }
+    const taken = all.filter((r) => isLive(r) && (r.status === 'paid' || r.status === 'review')).length;
+    if (taken >= maxPaidSeats() && !body.force) return res.status(409).json({ ok: false, error: 'full', max: maxPaidSeats() });
+    const now = new Date().toISOString();
+    const reg = {
+      id: newId(), token: newToken(), status: 'paid', pay_mode: 'live', provider: 'manual', payment_kind: kind,
+      amount_cents: kind === 'free' ? 0 : 1000, created_at: now, paid_at: now, added_by_admin: true, ...f,
+    };
+    if (body.checkin) { reg.checked_in_at = now; reg.checked_in_via = 'manual'; }
+    await store.save(reg);
+    let email = null;
+    if (body.send && reg.email) email = await resendInvitation(reg);
+    res.json({ ok: true, registration: adminView(reg), email });
+  });
+
+  /* Correction des coordonnées (faute de frappe, nouvelle adresse e-mail…) et note interne. */
+  app.post('/api/gestion/guests/update', guard, async (req, res) => {
+    const reg = await store.load(String(req.body?.id || ''));
+    if (!reg) return res.status(404).json({ ok: false, error: 'not_found' });
+    const { f, errors } = guestFields({ ...reg, ...req.body });
+    if (reg.status !== 'partner' && !f.last_name) errors.last_name = 'required';
+    if (Object.keys(errors).length) return res.status(400).json({ ok: false, error: 'invalid_fields', fields: errors });
+    Object.assign(reg, f, { updated_at: new Date().toISOString() });
+    await store.save(reg);
+    res.json({ ok: true, registration: adminView(reg) });
+  });
+
+  /* Annuler une inscription (libère la place ; le remboursement se fait dans CAWL) ou la rétablir. */
+  app.post('/api/gestion/guests/status', guard, async (req, res) => {
+    const reg = await store.load(String(req.body?.id || ''));
+    if (!reg || reg.status === 'partner') return res.status(404).json({ ok: false, error: 'not_found' });
+    if (req.body?.action === 'cancel') {
+      if (reg.status !== 'paid') return res.status(409).json({ ok: false, error: 'not_paid' });
+      reg.status = 'cancelled';
+      reg.cancelled_by_admin_at = new Date().toISOString();
+    } else if (req.body?.action === 'pay_onsite') {
+      // À l'entrée : la personne n'a pas finalisé son paiement en ligne et règle sur place.
+      if (!['pending', 'cancelled', 'failed'].includes(reg.status)) return res.status(409).json({ ok: false, error: 'already_paid' });
+      const now = new Date().toISOString();
+      Object.assign(reg, {
+        status: 'paid', provider: 'manual', payment_kind: 'onsite', amount_cents: 1000, pay_mode: reg.pay_mode || 'live',
+        paid_at: now, checked_in_at: req.body?.checkin === false ? reg.checked_in_at || null : now, checked_in_via: 'manual',
+        cancelled_by_admin_at: null,
+      });
+    } else if (req.body?.action === 'restore') {
+      if (reg.status !== 'cancelled' || !reg.paid_at) return res.status(409).json({ ok: false, error: 'cannot_restore' });
+      reg.status = 'paid';
+      reg.cancelled_by_admin_at = null;
+    } else {
+      return res.status(400).json({ ok: false, error: 'bad_action' });
+    }
+    await store.save(reg);
+    res.json({ ok: true, registration: adminView(reg) });
+  });
+
+  /* ---------- E-mails : message groupé aux participants ---------- */
+
+  function readMessage(body) {
+    return {
+      subject: String(body?.subject || '').trim().slice(0, 150),
+      body: String(body?.body || '').trim().slice(0, 6000),
+      withInvitation: body?.withInvitation === true,
+    };
+  }
+
+  app.post('/api/gestion/messages/preview', guard, async (req, res) => {
+    const msg = readMessage(req.body);
+    const mail = messageEmail(SAMPLE, {
+      subject: msg.subject || 'Objet du message', body: msg.body || 'Votre message apparaîtra ici.', withInvitation: msg.withInvitation,
+    });
+    res.json({ ok: true, subject: mail.subject, html: mail.html });
+  });
+
+  /**
+   * Envoi : { subject, body, audience, campaign, withInvitation, includeTest } ou { …, testTo } pour un essai.
+   * Par lots, dans le temps imparti ; chaque destinataire ne reçoit une campagne qu'une fois (relancer = reprendre).
+   */
+  app.post('/api/gestion/messages/send', guard, async (req, res) => {
+    const msg = readMessage(req.body);
+    if (!msg.subject || !msg.body) return res.status(400).json({ ok: false, error: 'empty_message' });
+    const testTo = String(req.body?.testTo || '').trim().toLowerCase();
+    if (testTo) {
+      if (!EMAIL_RE.test(testTo)) return res.status(400).json({ ok: false, error: 'invalid_email' });
+      const r = await sendMessage(SAMPLE, { ...msg, subject: `[Essai] ${msg.subject}` }, { to: testTo });
+      return res.json({ ok: true, test: true, via: r.via || null });
+    }
+    const audience = AUDIENCES[req.body?.audience];
+    const campaign = String(req.body?.campaign || '');
+    if (!audience) return res.status(400).json({ ok: false, error: 'bad_audience' });
+    if (!/^[a-z0-9-]{6,40}$/.test(campaign)) return res.status(400).json({ ok: false, error: 'bad_campaign' });
+    const includeTest = req.body?.includeTest === true;
+    const todo = (await store.listAll()).filter((r) => (includeTest || isLive(r)) && r.email && audience.test(r)
+      && !(r.messages_sent || []).some((m) => m.id === campaign));
+    const started = Date.now();
+    const sent = []; const failed = [];
+    let next = 0;
+    async function worker() {
+      while (next < todo.length && Date.now() - started < 20000) {
+        const reg = todo[next]; next += 1;
+        try {
+          await sendMessage(reg, msg);
+          reg.messages_sent = [...(reg.messages_sent || []), { id: campaign, subject: msg.subject, at: new Date().toISOString() }];
+          await store.save(reg);
+          sent.push(reg.id);
+        } catch (err) {
+          failed.push({ id: reg.id, error: err.message });
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(4, todo.length) }, worker));
+    res.json({ ok: true, sent: sent.length, failed: failed.length, failures: failed, remaining: todo.length - next });
+  });
+
   app.get('/api/gestion/export.csv', guard, async (req, res) => {
     const all = (await listFor(req.query.test === '1')).filter((r) => r.status === 'paid' || r.status === 'partner');
     const cols = [
       ['Référence', 'id'], ['Nom', 'last_name'], ['Prénom', 'first_name'], ['Entreprise', 'company'], ['Fonction', 'role'],
       ['E-mail', 'email'], ['Téléphone', 'phone'], ['Activité', 'activity'], ['Secteur', 'sector'], ['Site / LinkedIn', 'website'],
       ['Recherche', 'looking'], ['Peut apporter', 'offer'], ['Payé le', 'paid_at'], ['Arrivé à', 'checked_in_at'],
+      ['Origine', 'origin'], ['Note', 'note'],
     ];
     const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const rows = all.sort((a, b) => String(a.last_name).localeCompare(String(b.last_name), 'fr'))
+      .map((r) => ({ ...r, origin: { onsite: 'Payé sur place', free: 'Invité gratuit', partner: 'Partenaire', online: 'En ligne' }[adminView(r).source] }))
       .map((r) => cols.map(([, k]) => q(r[k])).join(';'));
     res.set('Content-Disposition', 'attachment; filename="inscrits-business-club.csv"')
       .set('Cache-Control', 'no-store')

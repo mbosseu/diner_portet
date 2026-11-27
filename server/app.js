@@ -10,7 +10,7 @@ const paypal = require('./lib/paypal');
 const payments = require('./lib/payments');
 const { sendEmail, isBrevoEnabled, isSmtpEnabled, smtpInfo } = require('./lib/brevo');
 const store = require('./lib/store');
-const { confirmationEmail, reminderEmail, organizerEmail, invitationLinks } = require('./lib/emails');
+const { confirmationEmail, reminderEmail, organizerEmail, messageEmail, invitationLinks } = require('./lib/emails');
 const studio = require('./studio');
 const gestion = require('./gestion');
 
@@ -204,6 +204,12 @@ async function resendInvitation(reg) {
   reg.resent_at = new Date().toISOString();
   await store.save(reg);
   return result;
+}
+
+/** Back-office : message libre de l'organisateur. `to` : adresse d'essai (envoi réel à cette adresse). */
+async function sendMessageTo(reg, message, { to } = {}) {
+  const mail = messageEmail(reg, message);
+  return sendEmail({ to: to || reg.email, subject: mail.subject, html: mail.html, text: mail.text, outboxOnly: to ? false : outboxOnlyFor(reg) });
 }
 
 async function finalizePaid(reg, payment) {
@@ -681,7 +687,8 @@ function createApp() {
   });
   studio.mount(app, { store, sendReminders, sendRealTestEmails, isLive, publicView });
   gestion.mount(app, { store, isLive, qrPayload, reconcile: () => reconcileQuietly(), resendInvitation, sendReminders,
-    reminderWindow: () => ({ today: todayInParis(), sends_on: eveOfEventISO(), event_day: EVENT.dateISO }) });
+    reminderWindow: () => ({ today: todayInParis(), sends_on: eveOfEventISO(), event_day: EVENT.dateISO }),
+    newId, newToken, properName, clean, sectors: [...SECTORS], sendMessage: sendMessageTo, messageEmail });
 
   app.use('/api', (_req, res) => res.status(404).json({ ok: false, error: 'not_found' }));
   app.use('/api', (err, _req, res, _next) => {
