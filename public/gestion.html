@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/gestion.css?v=11">
+  <link rel="stylesheet" href="css/gestion.css?v=12">
 </head>
 <body>
   <!-- Icônes (traits fins, une seule famille) -->
@@ -257,6 +257,12 @@
         </div>
 
         <article class="card">
+          <header class="card-head"><h2>Invitations partenaires</h2><span class="pill" id="partPill"></span></header>
+          <p class="card-text">Attribuez chaque code à un partenaire, puis envoyez-lui son invitation offerte avec QR code. Le code BC-PART-xx fonctionne aussi à l’accueil, par saisie.</p>
+          <ul class="partners" id="partnerList"></ul>
+        </article>
+
+        <article class="card">
           <header class="card-head"><h2>Nouveau message aux participants</h2></header>
           <div class="composer">
             <form class="stack" id="msgForm">
@@ -364,6 +370,35 @@
     </aside>
   </div>
 
+  <!-- Invitation partenaire -->
+  <div class="drawer" id="partnerDrawer" hidden>
+    <div class="drawer-backdrop" data-close></div>
+    <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="pTitle">
+      <header class="drawer-head">
+        <div><h2 id="pTitle">Invitation partenaire</h2><p class="drawer-sub" id="pSub"></p></div>
+        <button class="btn btn--icon" data-close aria-label="Fermer"><svg><use href="#i-close"/></svg></button>
+      </header>
+      <form class="drawer-body stack" id="partnerEdit" novalidate>
+        <p class="hint" id="pState"></p>
+        <div class="row-2">
+          <label class="field"><span class="field-label">Prénom</span><input class="input" name="first_name" autocomplete="off"><span class="field-err"></span></label>
+          <label class="field"><span class="field-label">Nom</span><input class="input" name="last_name" autocomplete="off"><span class="field-err"></span></label>
+        </div>
+        <label class="field"><span class="field-label">E-mail</span><input class="input" name="email" type="email" autocomplete="off"><span class="field-err"></span></label>
+        <div class="row-2">
+          <label class="field"><span class="field-label">Entreprise</span><input class="input" name="company" autocomplete="off"></label>
+          <label class="field"><span class="field-label">Fonction</span><input class="input" name="role" autocomplete="off"></label>
+        </div>
+        <p class="form-error" id="pError" role="alert" hidden></p>
+        <div class="card-actions">
+          <button class="btn btn--primary" type="submit" data-send="1" id="pSend">Enregistrer et envoyer l’invitation</button>
+          <button class="btn btn--ghost" type="submit" data-send="0">Enregistrer seulement</button>
+        </div>
+        <button class="link pclear" type="button" id="pClear" hidden>Libérer ce code</button>
+      </form>
+    </aside>
+  </div>
+
   <!-- Confirmation -->
   <dialog class="confirm" id="confirm">
     <form method="dialog">
@@ -382,6 +417,6 @@
   <section class="print-area" id="printArea" aria-hidden="true"></section>
 
   <script src="js/vendor/jsQR.js"></script>
-  <script src="js/gestion.js?v=11"></script>
+  <script src="js/gestion.js?v=12"></script>
 </body>
 </html>

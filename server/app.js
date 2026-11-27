@@ -10,7 +10,7 @@ const paypal = require('./lib/paypal');
 const payments = require('./lib/payments');
 const { sendEmail, isBrevoEnabled, isSmtpEnabled, smtpInfo } = require('./lib/brevo');
 const store = require('./lib/store');
-const { confirmationEmail, reminderEmail, organizerEmail, messageEmail, invitationLinks } = require('./lib/emails');
+const { confirmationEmail, reminderEmail, organizerEmail, messageEmail, partnerEmail, invitationLinks } = require('./lib/emails');
 const studio = require('./studio');
 const gestion = require('./gestion');
 
@@ -204,6 +204,22 @@ async function resendInvitation(reg) {
   reg.resent_at = new Date().toISOString();
   await store.save(reg);
   return result;
+}
+
+/** Back-office : invitation offerte à un partenaire (QR signé, comme une invitation payée). */
+async function sendPartnerInvitation(reg, code) {
+  if (!reg.token) reg.token = newToken();
+  try {
+    const result = await sendQrEmail(reg, (qrSrc) => partnerEmail(reg, { qrSrc, code }), { outboxOnly: false });
+    reg.partner_sent_at = new Date().toISOString();
+    reg.partner_error = null;
+    await store.save(reg);
+    return { via: result.via };
+  } catch (err) {
+    reg.partner_error = err.message;
+    await store.save(reg);
+    return { error: err.message };
+  }
 }
 
 /** Back-office : message libre de l'organisateur. `to` : adresse d'essai (envoi réel à cette adresse). */
@@ -568,7 +584,7 @@ function createApp() {
 
   app.get('/api/registrations/:id/qr.png', async (req, res) => {
     const reg = await store.load(req.params.id);
-    if (!reg || reg.status !== 'paid' || !sameToken(reg.token, req.query.t)) return res.status(404).end();
+    if (!reg || (reg.status !== 'paid' && reg.status !== 'partner') || !sameToken(reg.token, req.query.t)) return res.status(404).end();
     res.set('Cache-Control', 'private, max-age=86400').type('png').send(await qrBuffer(reg));
   });
 
@@ -688,7 +704,7 @@ function createApp() {
   studio.mount(app, { store, sendReminders, sendRealTestEmails, isLive, publicView });
   gestion.mount(app, { store, isLive, qrPayload, reconcile: () => reconcileQuietly(), resendInvitation, sendReminders,
     reminderWindow: () => ({ today: todayInParis(), sends_on: eveOfEventISO(), event_day: EVENT.dateISO }),
-    newId, newToken, properName, clean, sectors: [...SECTORS], sendMessage: sendMessageTo, messageEmail });
+    newId, newToken, properName, clean, sectors: [...SECTORS], sendMessage: sendMessageTo, messageEmail, sendPartnerInvitation });
 
   app.use('/api', (_req, res) => res.status(404).json({ ok: false, error: 'not_found' }));
   app.use('/api', (err, _req, res, _next) => {

@@ -134,7 +134,7 @@ function hhmm(iso) {
 
 function mount(app, {
   store, isLive, qrPayload, reconcile, resendInvitation, sendReminders, reminderWindow,
-  newId, newToken, properName, clean, sectors = [], sendMessage, messageEmail,
+  newId, newToken, properName, clean, sectors = [], sendMessage, messageEmail, sendPartnerInvitation,
 }) {
   function guard(req, res, next) {
     if (!isAuthed(req)) return res.status(401).json({ ok: false, error: 'login_required' });
@@ -193,6 +193,7 @@ function mount(app, {
         onsite: paid.filter((r) => r.provider === 'manual').length,
       },
       sectors,
+      partners: await partnersList(all),
       audiences: Object.fromEntries(Object.entries(AUDIENCES).map(([k, a]) => [k, {
         label: a.label, count: all.filter((r) => a.test(r) && r.email).length,
       }])),
@@ -234,7 +235,8 @@ function mount(app, {
       }
       reg.checked_in_at = new Date().toISOString();
       await store.save(reg);
-      return res.json({ ok: true, result: 'ok', message: guestName ? `Bienvenue ${reg.first_name} — invitation partenaire N° ${String(pn).padStart(2, '0')}.` : `Bienvenue — invitation partenaire N° ${String(pn).padStart(2, '0')}.`, registration: adminView(reg) });
+      const who = reg.first_name && reg.first_name !== 'Invité partenaire' ? ` ${[reg.first_name, reg.last_name].filter(Boolean).join(' ')}` : '';
+      return res.json({ ok: true, result: 'ok', message: `Bienvenue${who} — invitation partenaire N° ${String(pn).padStart(2, '0')}.`, registration: adminView(reg) });
     }
 
     // QR code (BCDINER|id|signature) ou référence saisie à la main
@@ -377,6 +379,69 @@ function mount(app, {
     }
     await store.save(reg);
     res.json({ ok: true, registration: adminView(reg) });
+  });
+
+  /* ---------- Invitations partenaires : attribution d'un code et envoi par e-mail ---------- */
+
+  async function partnersList(list) {
+    const all = list || await store.listAll();
+    const out = [];
+    for (let n = 1; n <= PARTNER_INVITES; n += 1) {
+      const reg = all.find((r) => r.id === partnerId(n));
+      const named = reg && reg.first_name && reg.first_name !== 'Invité partenaire';
+      out.push({
+        n, code: `BC-PART-${String(n).padStart(2, '0')}`, id: partnerId(n),
+        first_name: named ? reg.first_name : '', last_name: named ? reg.last_name || '' : '',
+        email: reg?.email || '', company: named ? reg.company || '' : '', role: reg?.role || '',
+        sent_at: reg?.partner_sent_at || null, error: reg?.partner_error || null, checked_in_at: reg?.checked_in_at || null,
+      });
+    }
+    return out;
+  }
+
+  function partnerNum(v) {
+    const n = Number(v);
+    return Number.isInteger(n) && n >= 1 && n <= PARTNER_INVITES ? n : null;
+  }
+
+  app.post('/api/gestion/partners', guard, async (req, res) => {
+    const n = partnerNum(req.body?.n);
+    if (!n) return res.status(400).json({ ok: false, error: 'bad_code' });
+    const f = {
+      first_name: properName(req.body?.first_name),
+      last_name: properName(req.body?.last_name),
+      email: clean(req.body?.email, 120).toLowerCase(),
+      company: clean(req.body?.company, 120),
+      role: clean(req.body?.role, 80),
+    };
+    const errors = {};
+    if (!f.first_name) errors.first_name = 'required';
+    if (f.email && !EMAIL_RE.test(f.email)) errors.email = 'invalid';
+    if (Object.keys(errors).length) return res.status(400).json({ ok: false, error: 'invalid_fields', fields: errors });
+    const id = partnerId(n);
+    const reg = (await store.load(id)) || { id, status: 'partner', created_at: new Date().toISOString(), amount_cents: 0 };
+    if (reg.email !== f.email) { reg.partner_sent_at = null; reg.partner_error = null; }
+    Object.assign(reg, f, { partner_number: n, assigned_at: reg.assigned_at || new Date().toISOString() });
+    if (!reg.token) reg.token = newToken();
+    await store.save(reg);
+    res.json({ ok: true, partners: await partnersList() });
+  });
+
+  app.post('/api/gestion/partners/send', guard, async (req, res) => {
+    const n = partnerNum(req.body?.n);
+    const reg = n ? await store.load(partnerId(n)) : null;
+    if (!reg || !reg.email) return res.status(400).json({ ok: false, error: 'no_email' });
+    const result = await sendPartnerInvitation(reg, `BC-PART-${String(n).padStart(2, '0')}`);
+    res.json({ ok: !result.error, error: result.error || null, via: result.via || null, partners: await partnersList() });
+  });
+
+  /* Libérer un code attribué par erreur (seulement s'il n'a pas encore servi à l'entrée). */
+  app.post('/api/gestion/partners/clear', guard, async (req, res) => {
+    const n = partnerNum(req.body?.n);
+    const reg = n ? await store.load(partnerId(n)) : null;
+    if (reg?.checked_in_at) return res.status(409).json({ ok: false, error: 'already_used' });
+    if (reg) await store.remove(reg.id);
+    res.json({ ok: true, partners: await partnersList() });
   });
 
   /* ---------- E-mails : message groupé aux participants ---------- */

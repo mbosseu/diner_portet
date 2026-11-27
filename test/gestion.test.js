@@ -294,3 +294,33 @@ test('message groupé : aperçu, essai, envoi une seule fois par destinataire, a
   assert.equal(again.body.sent, 0, 'personne ne reçoit deux fois la même campagne');
   assert.equal((await call('POST', '/api/gestion/messages/send', { subject: 'S', body: 'B', audience: 'tous', campaign: 'm-x-1234' })).status, 400);
 });
+
+test('invitations partenaires : attribution, envoi avec QR signé, entrée unique, libération', async () => {
+  const bad = await call('POST', '/api/gestion/partners', { n: 4, first_name: 'Léa', email: 'faux@' });
+  assert.equal(bad.status, 400);
+  const set = await call('POST', '/api/gestion/partners', { n: 4, first_name: 'léa', last_name: 'MARTIN', email: 'lea@partenaire.fr', company: 'Sponsor SA' });
+  assert.equal(set.status, 200, JSON.stringify(set.body));
+  const p4 = set.body.partners.find((p) => p.n === 4);
+  assert.equal(p4.first_name, 'Léa');
+  assert.equal(p4.code, 'BC-PART-04');
+  assert.equal((await call('POST', '/api/gestion/partners/send', { n: 5 })).status, 400, 'pas d’e-mail : pas d’envoi');
+
+  const sent = await call('POST', '/api/gestion/partners/send', { n: 4 });
+  assert.equal(sent.body.ok, true, JSON.stringify(sent.body));
+  assert.ok(sent.body.partners.find((p) => p.n === 4).sent_at);
+
+  const reg = await store.load('DP-PART04');
+  const img = await fetch(`${BASE}/api/registrations/DP-PART04/qr.png?t=${reg.token}`);
+  assert.equal(img.status, 200, 'le QR du partenaire est servi');
+  assert.equal((await fetch(`${BASE}/api/registrations/DP-PART04/qr.png?t=faux`)).status, 404);
+
+  const scan = await call('POST', '/api/gestion/checkin', { qr: qrPayload(reg) });
+  assert.equal(scan.body.result, 'ok', JSON.stringify(scan.body));
+  assert.match(scan.body.message, /Léa Martin/);
+  assert.equal((await call('POST', '/api/gestion/checkin', { code: 'BC-PART-04' })).body.result, 'already', 'code et QR ne servent qu’une fois');
+  assert.equal((await call('POST', '/api/gestion/partners/clear', { n: 4 })).status, 409, 'code déjà utilisé : non libérable');
+
+  await call('POST', '/api/gestion/partners', { n: 6, first_name: 'Paul', email: 'paul@partenaire.fr' });
+  assert.equal((await call('POST', '/api/gestion/partners/clear', { n: 6 })).body.ok, true);
+  assert.equal(await store.load('DP-PART06'), null);
+});

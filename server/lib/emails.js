@@ -59,7 +59,7 @@ function details() {
     </td>`;
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
     <tr>
-      ${cell('Date', `${nb(EVENT.dateLabel.replace(/ \d{4}$/, ''))}${sub(EVENT.dateLabel.slice(-4))}`, 'width="50%"')}
+      ${cell('Date', `${esc(EVENT.dateLabel.replace(/ \d{4}$/, '')).replace(/ (\d+) /, ' $1&nbsp;')}${sub(EVENT.dateLabel.slice(-4))}`, 'width="50%"')}
       ${cell('Programme', `${nb(time(EVENT.startTime))}${sub(`Initiation boxe<br>${nb(`Déjeuner à ${time(EVENT.lunchTime)}`)}`)}`, 'width="50%"')}
     </tr>
     <tr>
@@ -127,6 +127,49 @@ function confirmationEmail(reg, { qrSrc }) {
     subject: `Votre invitation · ${EVENT.shortName} du 4 décembre`,
     html: layout({ preheader: `Place confirmée. Votre invitation avec QR code pour le ${EVENT.dateLabel}.`, body }),
     text: `Bonjour ${reg.first_name},\n\nVotre place pour la ${EVENT.shortName} est confirmée (${EVENT.dateLabel}, dès ${time(EVENT.startTime)}, ${EVENT.venue}, ${EVENT.address}).\nRéférence : ${reg.id}\nVotre invitation : ${links.view}\n\nBusiness Club · Boxing Center`,
+  };
+}
+
+/** Invitation offerte à un partenaire (code BC-PART-xx), avec QR code signé. */
+function partnerEmail(reg, { qrSrc, code }) {
+  const links = invitationLinks(reg);
+  const name = [reg.first_name, reg.last_name].filter(Boolean).map(esc).join(' ');
+  const company = [reg.role, reg.company].filter(Boolean).map(esc).join(' · ');
+  const body = `
+  <tr><td bgcolor="#191815" style="background:#191815;border:1px solid #6b5a3a;padding:10px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #4a3f2c;">
+      <tr><td style="padding:34px 30px 8px;">
+        <div style="font-family:${SANS};font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8f8a80;">Invitation partenaire · Édition N°01</div>
+        <div style="font-family:${SERIF};font-style:italic;font-size:18px;color:#b9b2a6;margin-top:18px;">Le Business Club du Boxing Center a le plaisir de vous convier, en tant que partenaire, à sa</div>
+        <div style="font-family:${SERIF};font-size:40px;line-height:44px;color:#eae5da;margin-top:8px;">Rencontre <em style="color:#c4a46a;">Entrepreneurs</em></div>
+        <div style="height:1px;width:110px;background:#c4a46a;margin:24px 0;"></div>
+        <div style="font-family:${SERIF};font-size:28px;color:#eae5da;">${name}</div>
+        <div style="font-family:${SANS};font-size:13px;color:#a39d92;margin:6px 0 24px;">${company}</div>
+        ${details()}
+      </td></tr>
+      <tr><td align="center" style="padding:8px 30px 30px;border-top:1px dashed #6b5a3a;">
+        <div style="padding-top:26px;">
+          <img src="${qrSrc}" width="168" height="168" alt="QR code de votre invitation (également en pièce jointe)" style="display:block;background:#eae5da;padding:10px;">
+        </div>
+        <div style="font-family:${SANS};font-size:12px;letter-spacing:2px;color:#c4a46a;margin-top:12px;">${esc(code)}</div>
+        <div style="font-family:${SERIF};font-style:italic;font-size:15px;color:#8f8a80;margin-top:4px;">À présenter à l'entrée</div>
+        <div style="font-family:${SANS};font-size:11px;line-height:17px;color:#8f8a80;margin-top:12px;">QR code invisible ? Il est aussi en pièce jointe.<br>À l'accueil, le code ${esc(code)} suffit également.</div>
+      </td></tr>
+    </table>
+  </td></tr>
+  <tr><td style="padding:30px 8px 0;font-family:${SANS};font-size:14px;line-height:23px;color:#b9b2a6;">
+    Bonjour ${esc(reg.first_name)},<br><br>
+    Merci pour votre soutien au Business Club. Vous êtes notre invité(e) : votre déjeuner est offert, aucune inscription ni aucun paiement ne vous est demandé.
+    Au programme : à ${esc(time(EVENT.startTime))}, initiation boxe encadrée par nos coachs ; à ${esc(time(EVENT.lunchTime))}, déjeuner ; puis un temps de rencontres entre entrepreneurs.<br><br>
+    Prévoyez une tenue souple pour l'initiation. Cette invitation est nominative et valable pour une entrée.
+  </td></tr>
+  <tr><td style="padding:22px 8px 0;">
+    <a href="${links.ics}" style="font-family:${SANS};font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#eae5da;text-decoration:underline;">Ajouter à l'agenda</a>
+  </td></tr>`;
+  return {
+    subject: `Votre invitation partenaire · ${EVENT.shortName} du 4 décembre`,
+    html: layout({ preheader: `Vous êtes notre invité(e) le ${EVENT.dateLabel}. Votre invitation avec QR code.`, body }),
+    text: `Bonjour ${reg.first_name},\n\nVous êtes notre invité(e), en tant que partenaire, à la ${EVENT.shortName} (${EVENT.dateLabel}, dès ${time(EVENT.startTime)}, ${EVENT.venue}, ${EVENT.address}).\nVotre code d'entrée : ${code}\n\nBusiness Club · Boxing Center`,
   };
 }
 
@@ -206,4 +249,4 @@ function organizerEmail(reg) {
   };
 }
 
-module.exports = { confirmationEmail, reminderEmail, organizerEmail, messageEmail, invitationLinks };
+module.exports = { confirmationEmail, reminderEmail, organizerEmail, messageEmail, partnerEmail, invitationLinks };

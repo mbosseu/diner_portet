@@ -306,6 +306,16 @@ select.input { appearance: none; padding-right: 34px; cursor: pointer;
 @keyframes slide-left { from { transform: translateX(24px); opacity: 0; } }
 
 /* ---------- E-mails ---------- */
+.partners { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.partners li { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--line); }
+.partners .code { font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--gold); font-variant-numeric: tabular-nums; }
+.partners .who { min-width: 0; }
+.partners .who b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.partners .who b.free { color: var(--text-3); font-weight: 500; }
+.partners .who small { display: block; font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.partners .st { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.partners .act { grid-column: 3; grid-row: 1; }
+.pclear { justify-self: start; color: var(--bad); }
 .composer { display: grid; gap: 20px; }
 .send-test { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .preview { display: grid; gap: 8px; align-content: start; }
@@ -394,6 +404,7 @@ select.input { appearance: none; padding-right: 34px; cursor: pointer;
   .tr { padding: 11px 20px; }
 
   .composer { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .partners { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .preview { position: sticky; top: calc(var(--top-h, 90px) + 16px); }
   .preview iframe { height: 640px; }
 }

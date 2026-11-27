@@ -603,6 +603,7 @@
     openId = null; editing = false;
     $("drawer").hidden = true;
     $("addDrawer").hidden = true;
+    $("partnerDrawer").hidden = true;
     document.body.style.overflow = "";
   }
   document.addEventListener("click", function (e) {
@@ -610,7 +611,7 @@
     var o = e.target.closest("[data-open]");
     if (o) openDrawer(o.getAttribute("data-open"));
   });
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && (openId || !$("addDrawer").hidden)) closeDrawers(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && (openId || !$("addDrawer").hidden || !$("partnerDrawer").hidden)) closeDrawers(); });
 
   function kv(rows) {
     var list = rows.filter(function (x) { return x[1]; });
@@ -850,6 +851,8 @@
     }).join("");
     updateSendLabel();
 
+    renderPartners();
+
     var groups = {};
     data.registrations.forEach(function (r) {
       (r.messages || []).forEach(function (m) {
@@ -863,6 +866,85 @@
       return '<li><div class="who"><b>' + esc(g.subject) + "</b><small>" + plural(g.n, "destinataire", "destinataires") + '</small></div><span class="when">' + esc(day(g.at)) + "</span></li>";
     }).join("") : '<li class="empty">Aucun message envoyé depuis le back-office.</li>';
   }
+
+  /* ---------- Invitations partenaires ---------- */
+  var partnerN = null;
+  function partnerName(p) { return [p.first_name, p.last_name].filter(Boolean).join(" "); }
+  function renderPartners() {
+    var list = data.partners || [];
+    var sent = list.filter(function (p) { return p.sent_at; }).length;
+    $("partPill").textContent = sent + " / " + list.length + " envoyées";
+    $("partPill").className = "pill " + (sent ? "pill--ok" : "");
+    $("partnerList").innerHTML = list.map(function (p) {
+      var st = [];
+      if (p.checked_in_at) st.push('<span class="pill pill--ok">Arrivé ' + esc(hhmm(p.checked_in_at)) + "</span>");
+      if (p.error) st.push('<span class="pill pill--bad">Envoi en échec</span>');
+      else if (p.sent_at) st.push('<span class="pill pill--gold">Envoyée le ' + esc(day(p.sent_at)) + "</span>");
+      else if (p.first_name && !p.email) st.push('<span class="pill">Sans e-mail</span>');
+      else if (p.first_name) st.push('<span class="pill pill--warn">Pas encore envoyée</span>');
+      var label = !p.first_name ? "Attribuer" : (p.email && !p.sent_at ? "Envoyer" : "Modifier");
+      return '<li><span class="code">' + esc(p.code.replace("BC-", "")) + '</span><div class="who">' +
+        (p.first_name ? "<b>" + esc(partnerName(p)) + "</b><small>" + esc([p.company, p.email].filter(Boolean).join(" · ")) + "</small>"
+          : '<b class="free">Non attribué</b><small>Disponible</small>') +
+        '</div><button class="btn btn--' + (label === "Modifier" ? "ghost" : "primary") + ' btn--sm act" data-partner="' + p.n + '">' + label + "</button>" +
+        (st.length ? '<div class="st">' + st.join("") + "</div>" : "") + "</li>";
+    }).join("");
+  }
+
+  function openPartner(n) {
+    var p = (data.partners || []).filter(function (x) { return x.n === n; })[0];
+    if (!p) return;
+    partnerN = n;
+    var f = $("partnerEdit");
+    showFieldErrors(f, {});
+    $("pError").hidden = true;
+    ["first_name", "last_name", "email", "company", "role"].forEach(function (k) { f.elements[k].value = p[k] || ""; });
+    $("pTitle").textContent = p.first_name ? partnerName(p) : "Invitation partenaire";
+    $("pSub").textContent = p.code + " · déjeuner offert";
+    $("pState").textContent = p.checked_in_at ? "Déjà utilisée à l’entrée à " + hhmm(p.checked_in_at) + "."
+      : p.sent_at ? "Invitation envoyée le " + day(p.sent_at) + (p.email ? " à " + p.email : "") + ". Renvoyer l’envoie de nouveau."
+      : "Le partenaire recevra une invitation nominative avec QR code, valable pour une entrée.";
+    $("pSend").textContent = p.sent_at ? "Enregistrer et renvoyer l’invitation" : "Enregistrer et envoyer l’invitation";
+    $("pClear").hidden = !p.first_name || Boolean(p.checked_in_at);
+    $("partnerDrawer").hidden = false;
+    document.body.style.overflow = "hidden";
+    setTimeout(function () { f.elements.first_name.focus(); }, 60);
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-partner]");
+    if (b) openPartner(Number(b.getAttribute("data-partner")));
+  });
+
+  $("partnerEdit").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var f = e.target;
+    var send = e.submitter && e.submitter.getAttribute("data-send") === "1";
+    var body = Object.fromEntries(new FormData(f).entries());
+    body.n = partnerN;
+    if (send && !body.email.trim()) { showFieldErrors(f, { email: "required" }); return; }
+    $("pError").hidden = true;
+    post("/api/gestion/partners", body).then(function (r) {
+      if (r.error === "invalid_fields") { showFieldErrors(f, r.fields); return; }
+      if (!r.ok) { $("pError").hidden = false; $("pError").textContent = "Enregistrement impossible."; return; }
+      if (!send) { closeDrawers(); toast("Code attribué"); load(); return; }
+      post("/api/gestion/partners/send", { n: partnerN }).then(function (x) {
+        closeDrawers();
+        toast(x.ok ? "Invitation envoyée à " + body.email.trim() : "Échec de l’envoi : vérifiez l’adresse", x.ok ? "" : "bad");
+        load();
+      });
+    });
+  });
+
+  $("pClear").addEventListener("click", function () {
+    ask("Libérer ce code ?", "Le nom et l’e-mail associés seront effacés. Une invitation déjà envoyée ne sera plus valable à l’entrée.", "Libérer le code").then(function (ok) {
+      if (!ok) return;
+      post("/api/gestion/partners/clear", { n: partnerN }).then(function (r) {
+        closeDrawers();
+        toast(r.ok ? "Code libéré" : "Ce code a déjà servi à l’entrée", r.ok ? "" : "bad");
+        load();
+      });
+    });
+  });
 
   function resendOne(id) {
     return post("/api/gestion/resend", { id: id });
