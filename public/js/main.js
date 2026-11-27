@@ -339,7 +339,8 @@
 
   mm.add("(max-width: 760px)", function () {
     gsap.utils.toArray(".round").forEach(function (round) {
-      from2(round.querySelector(".round-video, img"), { scale: 1.12, ease: "none",
+      // Zoom au défilement : de 1,3 à 1,12 (on garde le recadrage du format 4:5)
+      gsap.fromTo(round.querySelector(".round-video, img"), { scale: 1.3 }, { scale: 1.12, ease: "none",
         scrollTrigger: { trigger: round, start: "top bottom", end: "bottom top", scrub: true } });
       from2(round.querySelector(".round-body").children, {
         autoAlpha: 0, y: 40, stagger: 0.08, duration: 1.2, ease: "expo.out",
