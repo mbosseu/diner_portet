@@ -80,7 +80,7 @@ async function registerAndPay(card, fields = person()) {
   const back = await fetch(reg.body.redirectUrl, { method: 'POST', body: form, redirect: 'manual' });
   assert.equal(back.status, 303);
   const loc = new URL(back.headers.get('location'));
-  assert.equal(loc.pathname, '/inscription.html');
+  assert.equal(loc.pathname, '/inscription');
   assert.equal(loc.searchParams.get('id'), reg.body.id);
   assert.equal(loc.searchParams.get('cawl_return'), '1');
   assert.ok(loc.searchParams.get('hostedCheckoutId'));

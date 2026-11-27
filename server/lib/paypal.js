@@ -136,7 +136,7 @@ function centsFromValue(value) {
 
 /** Adresses de retour : succès et annulation reviennent sur la page d'inscription. */
 function returnUrls(baseUrl, id, token) {
-  const base = `${String(baseUrl).replace(/\/+$/, '')}/inscription.html?id=${encodeURIComponent(id)}&t=${encodeURIComponent(token)}&pay_return=1`;
+  const base = `${String(baseUrl).replace(/\/+$/, '')}/inscription?id=${encodeURIComponent(id)}&t=${encodeURIComponent(token)}&pay_return=1`;
   return { returnUrl: base, cancelUrl: `${base}&cancelled=1` };
 }
 

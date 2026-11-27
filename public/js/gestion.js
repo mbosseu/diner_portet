@@ -1002,7 +1002,7 @@
     relance: {
       audience: "pending", invite: false,
       subject: "Votre inscription n’est pas encore finalisée",
-      body: "Bonjour {prenom},\n\nVous avez commencé votre inscription à la Rencontre Entrepreneurs du vendredi 4 décembre, mais le paiement n’a pas été finalisé : votre place n’est donc pas encore réservée.\n\nPour la confirmer, il suffit de reprendre l’inscription sur dinerportet.vercel.app/inscription.html (10 €, déjeuner compris).\n\nUne question ? Répondez simplement à cet e-mail.\n\nLe Business Club du Boxing Center",
+      body: "Bonjour {prenom},\n\nVous avez commencé votre inscription à la Rencontre Entrepreneurs du vendredi 4 décembre, mais le paiement n’a pas été finalisé : votre place n’est donc pas encore réservée.\n\nPour la confirmer, il suffit de reprendre l’inscription sur dinerportet.vercel.app/inscription (10 €, déjeuner compris).\n\nUne question ? Répondez simplement à cet e-mail.\n\nLe Business Club du Boxing Center",
     },
   };
 

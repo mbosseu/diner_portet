@@ -74,7 +74,7 @@ async function registerAndPay(account, fields = person()) {
   const back = await fetch(reg.body.redirectUrl, { method: 'POST', body: form, redirect: 'manual' });
   assert.equal(back.status, 303);
   const loc = new URL(back.headers.get('location'));
-  assert.equal(loc.pathname, '/inscription.html');
+  assert.equal(loc.pathname, '/inscription');
   assert.equal(loc.searchParams.get('id'), reg.body.id);
   assert.equal(loc.searchParams.get('pay_return'), '1');
   assert.ok(loc.searchParams.get('token'), 'PayPal ajoute le numéro de commande');
@@ -225,7 +225,7 @@ test('commande PayPal : montant, référence et retours corrects', () => {
   assert.deepEqual(body.purchase_units[0].amount, { currency_code: 'EUR', value: '10.00' });
   assert.equal(body.purchase_units[0].custom_id, 'DP-ABCDEFGH');
   assert.equal(body.payment_source.paypal.experience_context.return_url,
-    'https://dinerportet.vercel.app/inscription.html?id=DP-ABCDEFGH&t=tok&pay_return=1');
+    'https://dinerportet.vercel.app/inscription?id=DP-ABCDEFGH&t=tok&pay_return=1');
   assert.match(body.payment_source.paypal.experience_context.cancel_url, /&cancelled=1$/);
   assert.equal(body.application_context, undefined, 'jamais mélangé avec payment_source');
   assert.equal(paypal.orderState({ status: 'COMPLETED', purchase_units: [{ payments: { captures: [{ status: 'COMPLETED' }] } }] }), 'paid');

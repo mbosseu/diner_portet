@@ -3,12 +3,20 @@
   "framework": null,
   "buildCommand": "",
   "outputDirectory": "public",
+  "cleanUrls": true,
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/studio/pay/(.*)", "destination": "/api" },
-    { "source": "/studio/paypal/(.*)", "destination": "/api" },
-    { "source": "/studio", "destination": "/studio.html" },
-    { "source": "/gestion", "destination": "/gestion.html" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/studio/pay/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/studio/paypal/(.*)",
+      "destination": "/api"
+    }
   ],
   "functions": {
     "api/index.js": {
@@ -17,8 +25,17 @@
     }
   },
   "crons": [
-    { "path": "/api/cron/reminder", "schedule": "0 9 * * *" },
-    { "path": "/api/cron/reminder-retry", "schedule": "0 13 * * *" },
-    { "path": "/api/cron/reminder-last", "schedule": "0 17 * * *" }
+    {
+      "path": "/api/cron/reminder",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/reminder-retry",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/reminder-last",
+      "schedule": "0 17 * * *"
+    }
   ]
 }

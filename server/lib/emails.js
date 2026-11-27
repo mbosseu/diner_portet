@@ -71,7 +71,7 @@ function details() {
 function invitationLinks(reg) {
   const base = publicUrl();
   return {
-    view: `${base}/inscription.html?id=${encodeURIComponent(reg.id)}&t=${encodeURIComponent(reg.token)}`,
+    view: `${base}/inscription?id=${encodeURIComponent(reg.id)}&t=${encodeURIComponent(reg.token)}`,
     ics: `${base}/api/registrations/${encodeURIComponent(reg.id)}/calendar.ics?t=${encodeURIComponent(reg.token)}`,
     qr: `${base}/api/registrations/${encodeURIComponent(reg.id)}/qr.png?t=${encodeURIComponent(reg.token)}`,
   };

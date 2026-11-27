@@ -106,9 +106,9 @@ function phoneE164(value) {
 /** URL de retour courte (≤ 200 caractères). */
 function buildReturnUrl(baseUrl, id, token) {
   const base = String(baseUrl).replace(/\/+$/, '');
-  const full = `${base}/inscription.html?id=${encodeURIComponent(id)}&t=${encodeURIComponent(token)}&cawl_return=1`;
+  const full = `${base}/inscription?id=${encodeURIComponent(id)}&t=${encodeURIComponent(token)}&cawl_return=1`;
   if (full.length <= RETURN_URL_MAX_LEN) return full;
-  return `${base}/inscription.html?id=${encodeURIComponent(id)}&cawl_return=1`;
+  return `${base}/inscription?id=${encodeURIComponent(id)}&cawl_return=1`;
 }
 
 function buildPayload({ registration, amountCents, description, returnUrl }) {

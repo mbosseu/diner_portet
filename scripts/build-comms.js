@@ -14,7 +14,7 @@ const path = require('path');
 const { EVENT } = require('../server/lib/config');
 
 const SITE = 'https://dinerportet.vercel.app';
-const SIGNUP = `${SITE}/inscription.html`;
+const SIGNUP = `${SITE}/inscription`;
 const ROOT = path.join(__dirname, '..');
 const PARTNER_INVITES = 10;
 
