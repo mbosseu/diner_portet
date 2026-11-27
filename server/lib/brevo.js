@@ -188,4 +188,4 @@ async function verifySmtp() {
   return { ok: false, tried };
 }
 
-module.exports = { sendEmail, isBrevoEnabled, isSmtpEnabled, smtpInfo, verifySmtp, outboxDir };
+module.exports = { sendEmail, isBrevoEnabled, isSmtpEnabled, smtpInfo, verifySmtp, outboxDir, apiKey, sender };

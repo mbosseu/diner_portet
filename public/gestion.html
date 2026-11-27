@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/gestion.css?v=12">
+  <link rel="stylesheet" href="css/gestion.css?v=13">
 </head>
 <body>
   <!-- Icônes (traits fins, une seule famille) -->
@@ -262,6 +262,49 @@
           <ul class="partners" id="partnerList"></ul>
         </article>
 
+        <article class="card" id="nlCard">
+          <header class="card-head"><h2>Newsletter</h2><span class="pill" id="nlPill">Brevo</span></header>
+          <p class="card-text">Pour annoncer l’événement à vos contacts qui ne sont pas encore inscrits. L’envoi passe par une campagne Brevo : le lien de désinscription et les statistiques sont gérés automatiquement.</p>
+          <p class="form-error" id="nlError" hidden></p>
+          <div class="nl" id="nlBody">
+            <div class="nl-step">
+              <h3><span>1</span>Destinataires</h3>
+              <p class="hint">Cochez une ou plusieurs listes de contacts Brevo.</p>
+              <ul class="nl-lists" id="nlLists"><li class="hint">Chargement des listes…</li></ul>
+              <form class="nl-inline" id="nlNewList">
+                <input class="input" id="nlNewName" placeholder="Nom d’une nouvelle liste (ex. Business Club)" aria-label="Nom de la nouvelle liste" maxlength="60">
+                <button class="btn btn--ghost" type="submit">Créer la liste</button>
+              </form>
+            </div>
+            <div class="nl-step">
+              <h3><span>2</span>Ajouter des contacts</h3>
+              <p class="hint">Un contact par ligne : <b>e-mail</b>, ou <b>e-mail, Prénom, Nom</b>. Une personne désinscrite reste désinscrite.</p>
+              <form class="stack" id="nlAdd">
+                <select class="input" id="nlAddList" aria-label="Liste où ajouter les contacts"></select>
+                <textarea class="input" id="nlAddLines" rows="4" placeholder="marie.dupont@entreprise.fr, Marie, Dupont&#10;contact@cabinet-martin.fr"></textarea>
+                <div class="card-actions"><button class="btn btn--ghost" type="submit">Ajouter à la liste</button><span class="hint" id="nlAddStatus"></span></div>
+              </form>
+            </div>
+            <div class="nl-step">
+              <h3><span>3</span>Objet et aperçu</h3>
+              <label class="field"><span class="field-label">Objet de l’e-mail</span><input class="input" id="nlSubject" maxlength="150"></label>
+              <button class="btn btn--ghost" type="button" id="nlPreviewBtn">Voir la newsletter</button>
+            </div>
+            <div class="nl-step">
+              <h3><span>4</span>Essai puis envoi</h3>
+              <div class="send-test">
+                <input class="input" id="nlTestTo" type="email" placeholder="Votre adresse pour un essai" aria-label="Adresse pour l’essai de la newsletter">
+                <button class="btn btn--ghost" id="nlTest" type="button">Envoyer un essai</button>
+              </div>
+              <div class="card-actions"><button class="btn btn--primary" id="nlSend" type="button" disabled>Envoyer la newsletter</button><span class="hint" id="nlSendStatus"></span></div>
+            </div>
+          </div>
+          <div class="nl-history">
+            <p class="field-label">Campagnes envoyées</p>
+            <ul class="mini-list" id="nlCampaigns"><li class="empty">Aucune newsletter envoyée depuis le back-office.</li></ul>
+          </div>
+        </article>
+
         <article class="card">
           <header class="card-head"><h2>Nouveau message aux participants</h2></header>
           <div class="composer">
@@ -399,6 +442,18 @@
     </aside>
   </div>
 
+  <!-- Aperçu de la newsletter -->
+  <div class="drawer" id="nlDrawer" hidden>
+    <div class="drawer-backdrop" data-close></div>
+    <aside class="drawer-panel drawer-panel--wide" role="dialog" aria-modal="true" aria-labelledby="nlDTitle">
+      <header class="drawer-head">
+        <div><h2 id="nlDTitle">Newsletter</h2><p class="drawer-sub" id="nlDSub">Aperçu tel que vos contacts le recevront</p></div>
+        <button class="btn btn--icon" data-close aria-label="Fermer"><svg><use href="#i-close"/></svg></button>
+      </header>
+      <div class="drawer-body nl-preview"><iframe id="nlFrame" title="Aperçu de la newsletter" sandbox=""></iframe></div>
+    </aside>
+  </div>
+
   <!-- Confirmation -->
   <dialog class="confirm" id="confirm">
     <form method="dialog">
@@ -417,6 +472,6 @@
   <section class="print-area" id="printArea" aria-hidden="true"></section>
 
   <script src="js/vendor/jsQR.js"></script>
-  <script src="js/gestion.js?v=13"></script>
+  <script src="js/gestion.js?v=14"></script>
 </body>
 </html>

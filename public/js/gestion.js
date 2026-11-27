@@ -126,7 +126,7 @@
     if (!silent && history.replaceState) history.replaceState(null, "", HASH[name]);
     closeMenu();
     window.scrollTo(0, 0);
-    if (name === "mail") refreshPreview();
+    if (name === "mail") { refreshPreview(); nlLoad(); }
   }
   $$(".nav-item, .tab-item").forEach(function (b) {
     b.addEventListener("click", function () { setView(b.getAttribute("data-view")); });
@@ -604,6 +604,7 @@
     $("drawer").hidden = true;
     $("addDrawer").hidden = true;
     $("partnerDrawer").hidden = true;
+    $("nlDrawer").hidden = true;
     document.body.style.overflow = "";
   }
   document.addEventListener("click", function (e) {
@@ -611,7 +612,7 @@
     var o = e.target.closest("[data-open]");
     if (o) openDrawer(o.getAttribute("data-open"));
   });
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && (openId || !$("addDrawer").hidden || !$("partnerDrawer").hidden)) closeDrawers(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && (openId || !$("addDrawer").hidden || !$("partnerDrawer").hidden || !$("nlDrawer").hidden)) closeDrawers(); });
 
   function kv(rows) {
     var list = rows.filter(function (x) { return x[1]; });
@@ -943,6 +944,133 @@
         closeDrawers();
         toast(r.ok ? "Code libéré" : "Ce code a déjà servi à l’entrée", r.ok ? "" : "bad");
         load();
+      });
+    });
+  });
+
+  /* ---------- Newsletter (campagne Brevo) ---------- */
+  var nl = { lists: [], loaded: false };
+  function nlError(msg) { $("nlError").hidden = !msg; $("nlError").textContent = msg || ""; }
+  function nlSelected() {
+    return $$("#nlLists input:checked").map(function (i) { return Number(i.value); });
+  }
+  function nlUpdateSend() {
+    var ids = nlSelected();
+    var total = nl.lists.filter(function (l) { return ids.indexOf(l.id) !== -1; }).reduce(function (s, l) { return s + (l.count || 0); }, 0);
+    $("nlSend").disabled = !ids.length;
+    $("nlSend").textContent = ids.length ? "Envoyer la newsletter (" + plural(total, "contact", "contacts") + ")" : "Envoyer la newsletter";
+  }
+  function nlRenderLists(keep) {
+    var checked = keep || nlSelected();
+    $("nlLists").innerHTML = nl.lists.length ? nl.lists.map(function (l) {
+      return '<li><label><input type="checkbox" value="' + l.id + '"' + (checked.indexOf(l.id) !== -1 ? " checked" : "") + '><span class="nm">' + esc(l.name) +
+        '</span><span class="n">' + plural(l.count || 0, "contact", "contacts") + "</span></label></li>";
+    }).join("") : '<li class="hint">Aucune liste. Créez-en une ci-dessous.</li>';
+    var cur = $("nlAddList").value;
+    $("nlAddList").innerHTML = nl.lists.map(function (l) { return '<option value="' + l.id + '">' + esc(l.name) + "</option>"; }).join("");
+    if (cur) $("nlAddList").value = cur;
+    nlUpdateSend();
+  }
+  function nlRenderCampaigns(list) {
+    $("nlCampaigns").innerHTML = (list && list.length) ? list.map(function (c) {
+      var st = c.status === "sent" ? (c.sent != null ? plural(c.sent, "envoi", "envois") + (c.opens != null ? " · " + c.opens + " ouvertures" : "") + (c.clicks != null ? " · " + c.clicks + " clics" : "") : "Envoyée")
+        : ({ queued: "En cours d’envoi", in_process: "En cours d’envoi", draft: "Brouillon" }[c.status] || c.status);
+      return '<li><div class="who"><b>' + esc(c.subject || c.name) + "</b><small>" + esc(st) + '</small></div><span class="when">' + esc(c.sentDate ? day(c.sentDate) : "") + "</span></li>";
+    }).join("") : '<li class="empty">Aucune newsletter envoyée depuis le back-office.</li>';
+  }
+  function nlLoad() {
+    return api("/api/gestion/newsletter").then(function (r) {
+      if (r.error === "brevo_not_configured") { nlError("Brevo n’est pas configuré sur ce site : la newsletter ne peut pas partir d’ici."); $("nlBody").hidden = true; return; }
+      if (!r.ok) { nlError("Brevo ne répond pas pour le moment. Réessayez dans un instant."); return; }
+      nlError("");
+      nl.lists = r.lists || [];
+      if (!nl.loaded && r.subject) $("nlSubject").value = r.subject;
+      nl.loaded = true;
+      $("nlPill").textContent = plural(nl.lists.length, "liste", "listes");
+      nlRenderLists();
+      nlRenderCampaigns(r.campaigns);
+    });
+  }
+  $("nlLists").addEventListener("change", nlUpdateSend);
+
+  $("nlNewList").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var name = $("nlNewName").value.trim();
+    if (!name) return;
+    post("/api/gestion/newsletter/lists", { name: name }).then(function (r) {
+      if (!r.ok) { toast("Création impossible : " + (r.message || "réessayez"), "bad"); return; }
+      $("nlNewName").value = "";
+      nl.lists.unshift(r.list);
+      nlRenderLists(nlSelected().concat([r.list.id]));
+      $("nlAddList").value = String(r.list.id);
+      toast("Liste « " + r.list.name + " » créée");
+    });
+  });
+
+  $("nlAdd").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var listId = Number($("nlAddList").value);
+    var lines = $("nlAddLines").value.trim();
+    if (!listId) { toast("Créez ou choisissez d’abord une liste", "bad"); return; }
+    if (!lines) { toast("Saisissez au moins une adresse e-mail", "bad"); return; }
+    var btn = e.target.querySelector("button");
+    btn.disabled = true;
+    var tot = { created: 0, updated: 0, invalid: [], failed: [] };
+    $("nlAddStatus").textContent = "Ajout en cours…";
+    (function run(text) {
+      post("/api/gestion/newsletter/contacts", { listId: listId, lines: text }).then(function (r) {
+        if (!r.ok) { btn.disabled = false; $("nlAddStatus").textContent = "Échec : " + (r.message || "réessayez"); return; }
+        tot.created += r.created; tot.updated += r.updated; tot.invalid = tot.invalid.concat(r.invalid); tot.failed = tot.failed.concat(r.failed);
+        if (r.remaining && r.remaining.length) { run(r.remaining.join("\n")); return; }
+        btn.disabled = false;
+        var parts = [plural(tot.created + tot.updated, "contact ajouté", "contacts ajoutés")];
+        if (tot.updated) parts.push("dont " + tot.updated + " déjà connu" + (tot.updated > 1 ? "s" : "") + " de Brevo");
+        if (tot.invalid.length) parts.push(tot.invalid.length + " ligne" + (tot.invalid.length > 1 ? "s" : "") + " sans adresse valide");
+        if (tot.failed.length) parts.push(tot.failed.length + " refusé" + (tot.failed.length > 1 ? "s" : "") + " par Brevo");
+        $("nlAddStatus").textContent = parts.join(", ") + ".";
+        $("nlAddLines").value = tot.invalid.concat(tot.failed.map(function (f) { return f.line; })).join("\n");
+        nlLoad();
+      }).catch(function () { btn.disabled = false; $("nlAddStatus").textContent = "Connexion perdue. Réessayez."; });
+    })(lines);
+  });
+
+  $("nlPreviewBtn").addEventListener("click", function () {
+    api("/api/gestion/newsletter/preview").then(function (r) {
+      if (!r.ok) return;
+      $("nlFrame").srcdoc = r.html;
+      $("nlDTitle").textContent = $("nlSubject").value.trim() || r.subject;
+      $("nlDrawer").hidden = false;
+      document.body.style.overflow = "hidden";
+    });
+  });
+
+  $("nlTest").addEventListener("click", function () {
+    var to = $("nlTestTo").value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(to)) { toast("Adresse d’essai invalide", "bad"); return; }
+    var btn = this;
+    btn.disabled = true;
+    post("/api/gestion/newsletter/test", { to: to, subject: $("nlSubject").value.trim() }).then(function (r) {
+      btn.disabled = false;
+      toast(r.ok ? "Essai envoyé à " + to : "Échec de l’essai : " + (r.message || "réessayez"), r.ok ? "" : "bad");
+    });
+  });
+
+  $("nlSend").addEventListener("click", function () {
+    var ids = nlSelected();
+    var subject = $("nlSubject").value.trim();
+    if (!ids.length) return;
+    if (!subject) { toast("Écrivez l’objet de l’e-mail", "bad"); return; }
+    var names = nl.lists.filter(function (l) { return ids.indexOf(l.id) !== -1; }).map(function (l) { return "« " + l.name + " »"; }).join(", ");
+    ask("Envoyer la newsletter ?", "« " + subject + " » partira maintenant aux contacts de " + names + ". Une personne présente dans plusieurs listes ne la reçoit qu’une fois. Cet envoi ne peut pas être annulé.", "Envoyer maintenant").then(function (ok) {
+      if (!ok) return;
+      $("nlSend").disabled = true;
+      $("nlSendStatus").textContent = "Envoi en cours…";
+      post("/api/gestion/newsletter/send", { listIds: ids, subject: subject }).then(function (r) {
+        $("nlSendStatus").textContent = r.ok ? "Newsletter envoyée. Brevo la distribue dans les minutes qui viennent." : "Échec : " + (r.message || "réessayez");
+        toast(r.ok ? "Newsletter envoyée" : "Échec de l’envoi", r.ok ? "" : "bad");
+        $$("#nlLists input:checked").forEach(function (i) { i.checked = false; });
+        nlUpdateSend();
+        nlLoad();
       });
     });
   });

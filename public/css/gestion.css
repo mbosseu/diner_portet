@@ -316,6 +316,19 @@ select.input { appearance: none; padding-right: 34px; cursor: pointer;
 .partners .st { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .partners .act { grid-column: 3; grid-row: 1; }
 .pclear { justify-self: start; color: var(--bad); }
+.nl { display: grid; gap: 14px; }
+.nl-step { display: grid; gap: 10px; padding: 16px; border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--line); min-width: 0; }
+.nl-step h3 { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; }
+.nl-step h3 span { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--gold); color: #14110b; font-size: 12px; }
+.nl-lists { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.nl-lists label { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--surface-3); cursor: pointer; }
+.nl-lists input { width: 18px; height: 18px; accent-color: var(--gold); }
+.nl-lists .n { font-size: 12px; color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.nl-lists .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nl-inline { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.nl-history { margin-top: 18px; display: grid; gap: 8px; }
+.nl-preview { padding: 0; display: flex; }
+.nl-preview iframe { flex: 1; width: 100%; min-height: 70vh; border: 0; background: #0b0b0a; }
 .composer { display: grid; gap: 20px; }
 .send-test { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .preview { display: grid; gap: 8px; align-content: start; }
@@ -355,6 +368,7 @@ select.input { appearance: none; padding-right: 34px; cursor: pointer;
   .c-status { grid-column: 3; grid-row: 1; flex-wrap: wrap; }
   .kv { grid-template-columns: 1fr 1fr; }
   .drawer-panel { left: auto; width: min(520px, 100%); border-left: 1px solid var(--line-2); animation: slide-left .2s ease; }
+  .drawer-panel--wide { width: min(700px, 100%); }
 }
 
 /* ==========================================================================
@@ -405,6 +419,7 @@ select.input { appearance: none; padding-right: 34px; cursor: pointer;
 
   .composer { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
   .partners { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .preview { position: sticky; top: calc(var(--top-h, 90px) + 16px); }
   .preview iframe { height: 640px; }
 }

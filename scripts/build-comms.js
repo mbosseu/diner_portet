@@ -320,6 +320,7 @@ function write(rel, content) {
 }
 
 write('communication/newsletter-brevo.html', newsletter({ web: false }));
+write('server/templates/newsletter-brevo.html', newsletter({ web: false })); // envoyée depuis le back-office (campagne Brevo)
 write('public/comms/newsletter.html', newsletter({ web: true }));
 write('communication/invitations-partenaires.html', invitations('../public/assets/mail'));
 write('public/comms/_preview-invitations.html', invitations('/assets/mail'));

@@ -8,10 +8,15 @@
  *  - invitations partenaires BC-PART-01 à 10, une seule entrée chacune ;
  *  - renvoi de l'invitation par e-mail ;
  *  - ajout d'un invité (payé sur place, invité gratuit), correction des coordonnées, annulation ;
- *  - onglet E-mails : rappels, invitations en échec, message groupé aux participants.
+ *  - onglet E-mails : rappels, invitations en échec, message groupé aux participants ;
+ *  - newsletter : listes de contacts Brevo, ajout de contacts, essai, envoi d'une campagne Brevo.
  */
 
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const marketing = require('./lib/brevo-marketing');
+const { sendEmail } = require('./lib/brevo');
 const { publicUrl, isProduction, maxPaidSeats } = require('./lib/config');
 
 const COOKIE = 'bc_gestion';
@@ -446,6 +451,102 @@ function mount(app, {
     if (reg?.checked_in_at) return res.status(409).json({ ok: false, error: 'already_used' });
     if (reg) await store.remove(reg.id);
     res.json({ ok: true, partners: await partnersList() });
+  });
+
+  /* ---------- Newsletter : campagne Brevo vers une liste de contacts ---------- */
+
+  const NEWSLETTER_FILE = path.join(__dirname, 'templates', 'newsletter-brevo.html');
+  function newsletterHtml() {
+    return fs.readFileSync(NEWSLETTER_FILE, 'utf8');
+  }
+  function newsletterSubject() {
+    const m = /<title>([^<]*)<\/title>/i.exec(newsletterHtml());
+    return (m ? m[1] : 'Business Club · Rencontre Entrepreneurs').replace(/&amp;/g, '&').trim();
+  }
+  /** Pour l'aperçu et l'essai : le lien de désinscription n'existe que dans une vraie campagne. */
+  function newsletterPreview() {
+    return newsletterHtml().replace(/\{\{\s*unsubscribe\s*\}\}/g, '#');
+  }
+  function brevoError(res, err) {
+    console.error('newsletter', err.message);
+    return res.status(502).json({ ok: false, error: 'brevo_error', message: String(err.message || '').slice(0, 200) });
+  }
+  function needBrevo(_req, res, next) {
+    if (!marketing.isConfigured()) return res.status(503).json({ ok: false, error: 'brevo_not_configured' });
+    next();
+  }
+
+  app.get('/api/gestion/newsletter', guard, needBrevo, async (_req, res) => {
+    try {
+      const [lists, campaigns] = await Promise.all([marketing.lists(), marketing.campaigns().catch(() => [])]);
+      res.json({ ok: true, lists, campaigns, subject: newsletterSubject() });
+    } catch (err) { brevoError(res, err); }
+  });
+
+  app.get('/api/gestion/newsletter/preview', guard, (_req, res) => {
+    res.json({ ok: true, html: newsletterPreview(), subject: newsletterSubject() });
+  });
+
+  app.post('/api/gestion/newsletter/lists', guard, needBrevo, async (req, res) => {
+    const name = clean(req.body?.name, 60);
+    if (!name) return res.status(400).json({ ok: false, error: 'empty_name' });
+    try { res.json({ ok: true, list: await marketing.createList(name) }); } catch (err) { brevoError(res, err); }
+  });
+
+  /** Une ligne par contact : « e-mail », « e-mail, Prénom, Nom » ou « Prénom Nom <e-mail> ». */
+  function parseContact(line) {
+    const m = /[^\s<>,;]+@[^\s<>,;]+\.[^\s<>,;]{2,}/.exec(line);
+    if (!m) return null;
+    const email = m[0].toLowerCase();
+    const rest = line.replace(m[0], ' ').replace(/[<>"]/g, ' ');
+    let parts = rest.split(/[,;\t]+/).map((x) => x.trim()).filter(Boolean);
+    if (parts.length === 1 && parts[0].includes(' ')) {
+      const w = parts[0].split(/\s+/);
+      parts = [w[0], w.slice(1).join(' ')];
+    }
+    return { email, firstName: properName(parts[0] || ''), lastName: properName(parts[1] || '') };
+  }
+
+  app.post('/api/gestion/newsletter/contacts', guard, needBrevo, async (req, res) => {
+    const listId = Number(req.body?.listId);
+    if (!Number.isInteger(listId) || listId <= 0) return res.status(400).json({ ok: false, error: 'bad_list' });
+    const lines = String(req.body?.lines || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 300);
+    if (!lines.length) return res.status(400).json({ ok: false, error: 'empty' });
+    const started = Date.now();
+    const out = { created: 0, updated: 0, invalid: [], failed: [], remaining: [] };
+    for (let i = 0; i < lines.length; i += 1) {
+      if (Date.now() - started > 20000) { out.remaining = lines.slice(i); break; }
+      const c = parseContact(lines[i]);
+      if (!c) { out.invalid.push(lines[i]); continue; }
+      try {
+        const r = await marketing.addContact({ ...c, listId });
+        out[r] += 1;
+      } catch (err) {
+        out.failed.push({ line: lines[i], error: String(err.message || '').slice(0, 120) });
+      }
+    }
+    res.json({ ok: true, ...out });
+  });
+
+  app.post('/api/gestion/newsletter/test', guard, async (req, res) => {
+    const to = String(req.body?.to || '').trim().toLowerCase();
+    if (!EMAIL_RE.test(to)) return res.status(400).json({ ok: false, error: 'invalid_email' });
+    const subject = clean(req.body?.subject, 150) || newsletterSubject();
+    try {
+      const r = await sendEmail({ to, subject: `[Essai] ${subject}`, html: newsletterPreview(), text: subject });
+      res.json({ ok: true, via: r.via });
+    } catch (err) { brevoError(res, err); }
+  });
+
+  app.post('/api/gestion/newsletter/send', guard, needBrevo, async (req, res) => {
+    const listIds = (Array.isArray(req.body?.listIds) ? req.body.listIds : []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+    const subject = clean(req.body?.subject, 150);
+    if (!listIds.length) return res.status(400).json({ ok: false, error: 'no_list' });
+    if (!subject) return res.status(400).json({ ok: false, error: 'empty_subject' });
+    try {
+      const r = await marketing.sendCampaign({ subject, html: newsletterHtml(), listIds });
+      res.json({ ok: true, id: r.id });
+    } catch (err) { brevoError(res, err); }
   });
 
   /* ---------- E-mails : message groupé aux participants ---------- */
